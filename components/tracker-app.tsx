@@ -1009,7 +1009,6 @@ function StudentsView({ onCollect }: { onCollect: (s: Student) => void }) {
 
 function EditStudentDialog({ student }: { student: Student }) {
   const [open, setOpen] = useState(false)
-  const [editPhone, setEditPhone] = useState(student.phone)
   const client = useQueryClient()
   const mutation = useMutation({
     mutationFn: (body: unknown) =>
@@ -1034,17 +1033,10 @@ function EditStudentDialog({ student }: { student: Student }) {
       notes: student.notes,
       expectedUpdatedAt: student.updatedAt,
     },
-    onSubmit: ({ value }) => mutation.mutate({ ...value, phone: editPhone }),
   })
 
   return (
-    <Dialog
-      open={open}
-      onOpenChange={(nextOpen) => {
-        if (nextOpen) setEditPhone(student.phone)
-        setOpen(nextOpen)
-      }}
-    >
+    <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger
         render={
           <Button size="sm" variant="outline">
@@ -1063,7 +1055,11 @@ function EditStudentDialog({ student }: { student: Student }) {
         <form
           onSubmit={(event) => {
             event.preventDefault()
-            form.handleSubmit()
+            const phone = new FormData(event.currentTarget).get("phone")
+            mutation.mutate({
+              ...form.state.values,
+              phone: typeof phone === "string" ? phone : student.phone,
+            })
           }}
         >
           <FieldGroup>
@@ -1090,11 +1086,10 @@ function EditStudentDialog({ student }: { student: Student }) {
                 </FieldLabel>
                 <Input
                   id={`edit-phone-${student._id}`}
-                  type="tel"
+                  name="phone"
                   inputMode="tel"
-                  autoComplete="tel"
-                  value={editPhone}
-                  onChange={(event) => setEditPhone(event.target.value)}
+                  autoComplete="off"
+                  defaultValue={student.phone}
                 />
               </Field>
             </div>
