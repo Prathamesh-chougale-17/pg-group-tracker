@@ -110,7 +110,6 @@ type Student = {
   name: string
   phone: string
   gender: Gender
-  visited: boolean
   currentGroup: CurrentGroup
   projectGroup: string | null
   desktopRequired: boolean | null
@@ -130,7 +129,6 @@ type Occupancy = {
 type Dashboard = {
   stats: Record<string, number>
   occupancy: Occupancy[]
-  nextStudent: Student | null
 }
 const toast = {
   success: (title: string) => toastManager.add({ title, type: "success" }),
@@ -369,7 +367,6 @@ function GroupStudentsTable({
           <TableHead>Student</TableHead>
           <TableHead>Phone</TableHead>
           <TableHead>Gender</TableHead>
-          <TableHead>Visit status</TableHead>
           <TableHead>Desktop</TableHead>
           <TableHead>Project group</TableHead>
         </TableRow>
@@ -386,11 +383,6 @@ function GroupStudentsTable({
                 {student.gender === "BOY" ? "Male" : "Female"}
               </TableCell>
               <TableCell>
-                <Badge variant={student.visited ? "secondary" : "outline"}>
-                  {student.visited ? "Visited" : "Not visited"}
-                </Badge>
-              </TableCell>
-              <TableCell>
                 {student.desktopRequired === null
                   ? "Not decided"
                   : student.desktopRequired
@@ -403,7 +395,7 @@ function GroupStudentsTable({
         ) : (
           <TableRow>
             <TableCell
-              colSpan={6}
+              colSpan={5}
               className="h-20 text-center text-muted-foreground"
             >
               No students assigned to {groupId}.
@@ -423,11 +415,9 @@ function DashboardView() {
   if (query.isLoading) return <LoadingCards />
   if (query.error) return <ErrorAlert error={query.error} />
   const { stats, occupancy } = query.data!,
-    progress = stats.total ? (stats.visited / stats.total) * 100 : 0
+    progress = stats.total ? (stats.assigned / stats.total) * 100 : 0
   const cards = [
     ["Total students", stats.total],
-    ["Visited", stats.visited],
-    ["Not visited", stats.notVisited],
     ["Assigned", stats.assigned],
     ["Unassigned", stats.unassigned],
     ["Not sure", stats.notSure],
@@ -441,14 +431,14 @@ function DashboardView() {
         <CardHeader>
           <CardDescription>Collection progress</CardDescription>
           <CardTitle>
-            {stats.visited}{" "}
+            {stats.assigned}{" "}
             <span className="text-muted-foreground">/ {stats.total}</span>
           </CardTitle>
         </CardHeader>
         <CardContent className="flex flex-col gap-2">
           <Progress value={progress} />
           <p className="text-sm text-muted-foreground">
-            {progress.toFixed(1)}% of verified students visited
+            {progress.toFixed(1)}% of verified students assigned
           </p>
         </CardContent>
       </Card>
@@ -482,7 +472,7 @@ function CollectionMode({
       queryFn: () => api<Dashboard>("/api/dashboard"),
     }),
     progress = dashboard.data?.stats.total
-      ? (dashboard.data.stats.visited / dashboard.data.stats.total) * 100
+      ? (dashboard.data.stats.assigned / dashboard.data.stats.total) * 100
       : 0
   return (
     <div className="mx-auto flex max-w-3xl flex-col gap-5">
@@ -493,7 +483,7 @@ function CollectionMode({
               <CardDescription>Collection progress</CardDescription>
               <CardTitle>
                 {dashboard.data
-                  ? `${dashboard.data.stats.visited} / ${dashboard.data.stats.total}`
+                  ? `${dashboard.data.stats.assigned} / ${dashboard.data.stats.total}`
                   : "Loading…"}
               </CardTitle>
             </div>
@@ -569,9 +559,6 @@ function StudentSearch({ onSelect }: { onSelect: (s: Student) => void }) {
                           {student.phone}
                         </p>
                       </div>
-                      {student.visited && (
-                        <Badge variant="secondary">Visited</Badge>
-                      )}
                     </CommandItem>
                   ))}
                 </CommandGroup>
@@ -613,7 +600,7 @@ function CollectionForm({
       desktopPartnerId: student.desktopPartner,
       notes: student.notes,
     },
-    onSubmit: async ({ value, meta }) =>
+    onSubmit: async ({ value }) =>
       mutation.mutate({
         ...value,
         currentGroup:
@@ -622,7 +609,6 @@ function CollectionForm({
             : value.groupAnswer === "NOT_SURE"
               ? "NOT_SURE"
               : value.currentGroup,
-        markVisited: meta === "visit",
         expectedUpdatedAt: student.updatedAt,
       }),
   })
@@ -635,7 +621,7 @@ function CollectionForm({
     onSuccess: async () => {
       await invalidateAll(client)
       toast.success(`${student.name} updated successfully.`)
-      onDone((await api<Dashboard>("/api/dashboard")).nextStudent)
+      onDone(null)
     },
     onError: (error) => toast.error(error.message),
   })
@@ -643,22 +629,15 @@ function CollectionForm({
     <form
       onSubmit={(event) => {
         event.preventDefault()
-        form.handleSubmit("visit")
+        form.handleSubmit()
       }}
     >
       <Card>
         <CardHeader>
-          <div className="flex items-start justify-between gap-3">
-            <div>
-              <CardTitle>{student.name}</CardTitle>
-              <CardDescription>
-                {student.gender === "BOY" ? "Male" : "Female"} · {student.phone}
-              </CardDescription>
-            </div>
-            <Badge variant={student.visited ? "secondary" : "outline"}>
-              {student.visited ? "Visited" : "Not visited"}
-            </Badge>
-          </div>
+          <CardTitle>{student.name}</CardTitle>
+          <CardDescription>
+            {student.gender === "BOY" ? "Male" : "Female"} · {student.phone}
+          </CardDescription>
         </CardHeader>
         <CardContent>
           <FieldGroup>
@@ -840,16 +819,8 @@ function CollectionForm({
         </CardContent>
         <CardFooter className="sticky-actions">
           <Button type="submit" disabled={mutation.isPending}>
-            {mutation.isPending ? "Saving…" : "Save & mark visited"}
+            {mutation.isPending ? "Saving…" : "Save student"}
             <ArrowRightIcon data-icon="inline-end" />
-          </Button>
-          <Button
-            type="button"
-            variant="outline"
-            disabled={mutation.isPending}
-            onClick={() => form.handleSubmit("save")}
-          >
-            Save without marking visited
           </Button>
           <Button type="button" variant="ghost" onClick={onBack}>
             Choose another student
@@ -906,7 +877,7 @@ function StudentsView({ onCollect }: { onCollect: (s: Student) => void }) {
     queryKey: ["students", filter],
     queryFn: () =>
       api<Student[]>(
-        `/api/students${filter === "unvisited" ? "?visited=false" : filter === "unassigned" ? "?group=UNASSIGNED" : filter === "exceptions" ? "?exception=true" : ""}`
+        `/api/students${filter === "unassigned" ? "?group=UNASSIGNED" : filter === "exceptions" ? "?exception=true" : ""}`
       ),
   })
   return (
@@ -918,7 +889,6 @@ function StudentsView({ onCollect }: { onCollect: (s: Student) => void }) {
           variant="outline"
         >
           <ToggleGroupItem value="all">All</ToggleGroupItem>
-          <ToggleGroupItem value="unvisited">Unvisited</ToggleGroupItem>
           <ToggleGroupItem value="unassigned">Unassigned</ToggleGroupItem>
           <ToggleGroupItem value="exceptions">Exceptions</ToggleGroupItem>
         </ToggleGroup>
@@ -956,7 +926,6 @@ function StudentsView({ onCollect }: { onCollect: (s: Student) => void }) {
                   <TableHead>Phone</TableHead>
                   <TableHead>Gender</TableHead>
                   <TableHead>Group</TableHead>
-                  <TableHead>Visit status</TableHead>
                   <TableHead>Record type</TableHead>
                   <TableHead className="text-right">Action</TableHead>
                 </TableRow>
@@ -974,13 +943,6 @@ function StudentsView({ onCollect }: { onCollect: (s: Student) => void }) {
                     <TableCell>
                       <Badge variant="outline">
                         {student.currentGroup ?? "Unassigned"}
-                      </Badge>
-                    </TableCell>
-                    <TableCell>
-                      <Badge
-                        variant={student.visited ? "secondary" : "outline"}
-                      >
-                        {student.visited ? "Visited" : "Not visited"}
                       </Badge>
                     </TableCell>
                     <TableCell>
@@ -1035,7 +997,6 @@ function EditStudentDialog({ student }: { student: Student }) {
       name: student.name,
       gender: student.gender,
       currentGroup: student.currentGroup,
-      visited: student.visited,
       desktopRequired: student.desktopRequired,
       notes: student.notes,
       expectedUpdatedAt: student.updatedAt,
@@ -1056,7 +1017,7 @@ function EditStudentDialog({ student }: { student: Student }) {
         <DialogHeader>
           <DialogTitle>Edit student</DialogTitle>
           <DialogDescription>
-            Update identity and collection status for {student.name}.
+            Update identity and group details for {student.name}.
           </DialogDescription>
         </DialogHeader>
         <form
@@ -1117,59 +1078,36 @@ function EditStudentDialog({ student }: { student: Student }) {
                 </FieldSet>
               )}
             </form.Field>
-            <div className="grid gap-4 sm:grid-cols-2">
-              <form.Field name="currentGroup">
-                {(field) => (
-                  <Field>
-                    <FieldLabel>Current group</FieldLabel>
-                    <Select
-                      value={field.state.value ?? "UNASSIGNED"}
-                      onValueChange={(value) =>
-                        field.handleChange(
-                          value === "UNASSIGNED"
-                            ? null
-                            : (value as CurrentGroup)
-                        )
-                      }
-                    >
-                      <SelectTrigger className="w-full">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectGroup>
-                          <SelectItem value="UNASSIGNED">Unassigned</SelectItem>
-                          <SelectItem value="NOT_SURE">Not sure</SelectItem>
-                          {GROUP_IDS.map((groupId) => (
-                            <SelectItem key={groupId} value={groupId}>
-                              {groupId}
-                            </SelectItem>
-                          ))}
-                        </SelectGroup>
-                      </SelectContent>
-                    </Select>
-                  </Field>
-                )}
-              </form.Field>
-              <form.Field name="visited">
-                {(field) => (
-                  <FieldSet>
-                    <FieldLegend>Visit status</FieldLegend>
-                    <ToggleGroup
-                      value={[field.state.value ? "VISITED" : "NOT_VISITED"]}
-                      onValueChange={(value) =>
-                        field.handleChange(value[0] === "VISITED")
-                      }
-                      variant="outline"
-                    >
-                      <ToggleGroupItem value="VISITED">Visited</ToggleGroupItem>
-                      <ToggleGroupItem value="NOT_VISITED">
-                        Not visited
-                      </ToggleGroupItem>
-                    </ToggleGroup>
-                  </FieldSet>
-                )}
-              </form.Field>
-            </div>
+            <form.Field name="currentGroup">
+              {(field) => (
+                <Field>
+                  <FieldLabel>Current group</FieldLabel>
+                  <Select
+                    value={field.state.value ?? "UNASSIGNED"}
+                    onValueChange={(value) =>
+                      field.handleChange(
+                        value === "UNASSIGNED" ? null : (value as CurrentGroup)
+                      )
+                    }
+                  >
+                    <SelectTrigger className="w-full">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectGroup>
+                        <SelectItem value="UNASSIGNED">Unassigned</SelectItem>
+                        <SelectItem value="NOT_SURE">Not sure</SelectItem>
+                        {GROUP_IDS.map((groupId) => (
+                          <SelectItem key={groupId} value={groupId}>
+                            {groupId}
+                          </SelectItem>
+                        ))}
+                      </SelectGroup>
+                    </SelectContent>
+                  </Select>
+                </Field>
+              )}
+            </form.Field>
             <form.Field name="desktopRequired">
               {(field) => (
                 <FieldSet>

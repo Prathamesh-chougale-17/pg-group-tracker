@@ -97,7 +97,6 @@ async function assertPlacementRules(
 export async function listStudents(
   filters: {
     q?: string
-    visited?: string
     group?: string
     exception?: string
   } = {}
@@ -116,7 +115,6 @@ export async function listStudents(
       { normalizedPhone: { $regex: phone } },
     ]
   }
-  if (filters.visited) query.visited = filters.visited === "true"
   if (filters.group === "UNASSIGNED") query.currentGroup = null
   else if (filters.group) query.currentGroup = filters.group
   if (filters.exception) query.isException = filters.exception === "true"
@@ -161,7 +159,6 @@ export async function createException(
       phone: input.phone.trim(),
       normalizedPhone,
       gender: input.gender,
-      visited: false,
       currentGroup: null,
       projectGroup: null,
       desktopRequired: null,
@@ -329,7 +326,6 @@ export async function updateStudent(
             desktopRequired: input.desktopRequired,
             desktopPartner: input.desktopPartnerId,
             notes: input.notes,
-            visited: input.markVisited ? true : student.visited,
             updatedAt: now,
           },
         },
@@ -343,7 +339,6 @@ export async function updateStudent(
         {
           type: "STUDENT_UPDATED",
           studentId: id,
-          markVisited: input.markVisited,
           at: now,
         },
         { session }
@@ -420,7 +415,6 @@ export async function adminUpdateStudent(
             normalizedPhone,
             gender: input.gender,
             currentGroup: input.currentGroup,
-            visited: input.visited,
             desktopRequired: input.desktopRequired,
             desktopPartner:
               input.desktopRequired === true ? student.desktopPartner : null,
@@ -545,8 +539,6 @@ export async function dashboard() {
   return {
     stats: {
       total: students.length,
-      visited: students.filter((s) => s.visited).length,
-      notVisited: students.filter((s) => !s.visited).length,
       assigned,
       unassigned: students.filter((s) => s.currentGroup === null).length,
       notSure: students.filter((s) => s.currentGroup === "NOT_SURE").length,
@@ -555,17 +547,6 @@ export async function dashboard() {
       projectGroups: await db.collection("projectGroups").countDocuments(),
     },
     occupancy: calculateOccupancy(students),
-    nextStudent: students
-      .filter((s) => !s.visited)
-      .sort((a, b) => a.name.localeCompare(b.name))[0]
-      ? publicStudent(
-          students
-            .filter((s) => !s.visited)
-            .sort((a, b) =>
-              a.name.localeCompare(b.name)
-            )[0] as unknown as Record<string, unknown>
-        )
-      : null,
   }
 }
 export async function reconciliationData() {
@@ -634,7 +615,6 @@ export async function confirmMatch(
     phone: String(phoneDoc.phoneNumber),
     normalizedPhone,
     gender: input.gender,
-    visited: false,
     currentGroup: null,
     projectGroup: null,
     desktopRequired: null,

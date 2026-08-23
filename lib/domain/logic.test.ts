@@ -1,7 +1,6 @@
 import { describe, expect, it } from "vitest"
 import {
   calculateOccupancy,
-  nextUnvisited,
   normalizeName,
   normalizePhone,
   placementRuleError,
@@ -93,7 +92,6 @@ describe("student rules", () => {
       desktopRequired: null,
       desktopPartnerId: null,
       notes: "",
-      markVisited: false,
     }
     expect(
       studentUpdateSchema.parse({ ...base, currentGroup: null }).currentGroup
@@ -171,11 +169,4 @@ describe("student rules", () => {
     ])[5]
     expect(d6).toMatchObject({ boys: 1, girls: 1, total: 2 })
   })
-  it("selects the next alphabetical unvisited student", () =>
-    expect(
-      nextUnvisited([
-        { _id: "1", name: "Zed", visited: false },
-        { _id: "2", name: "Amy", visited: false },
-      ])?._id
-    ).toBe("2"))
 })

@@ -31,7 +31,6 @@ export const studentUpdateSchema = z.object({
   desktopRequired: z.boolean().nullable(),
   desktopPartnerId: z.string().nullable(),
   notes: z.string().trim().max(1000),
-  markVisited: z.boolean(),
   expectedUpdatedAt: z.string().datetime().optional(),
 })
 export const studentAdminUpdateSchema = z.object({
@@ -39,7 +38,6 @@ export const studentAdminUpdateSchema = z.object({
   phone: z.string().trim().min(10).max(18),
   gender: genderSchema,
   currentGroup: currentGroupSchema,
-  visited: z.boolean(),
   desktopRequired: z.boolean().nullable(),
   notes: z.string().trim().max(1000),
   expectedUpdatedAt: z.string().datetime().optional(),

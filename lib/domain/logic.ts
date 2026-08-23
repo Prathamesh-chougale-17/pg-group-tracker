@@ -145,13 +145,3 @@ export function rawReport(
     ),
   }
 }
-export function nextUnvisited(
-  students: Pick<Student, "_id" | "visited" | "name">[],
-  currentId?: string
-) {
-  return (
-    [...students]
-      .sort((a, b) => a.name.localeCompare(b.name))
-      .find((s) => !s.visited && s._id !== currentId) ?? null
-  )
-}

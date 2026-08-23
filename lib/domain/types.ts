@@ -10,7 +10,6 @@ export interface Student {
   phone: string
   normalizedPhone: string
   gender: Gender
-  visited: boolean
   currentGroup: CurrentGroup
   projectGroup: string | null
   desktopRequired: boolean | null

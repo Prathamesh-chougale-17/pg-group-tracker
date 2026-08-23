@@ -46,7 +46,6 @@ export async function ensureIndexes(db: Db) {
         name: "unique_normalized_phone",
       },
       { key: { normalizedName: 1 }, name: "normalized_name" },
-      { key: { visited: 1 }, name: "visited" },
       { key: { currentGroup: 1 }, name: "current_group" },
       { key: { gender: 1 }, name: "gender" },
       { key: { isException: 1 }, name: "exception" },
