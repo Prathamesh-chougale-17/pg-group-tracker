@@ -648,11 +648,8 @@ function CollectionForm({
                 {(field) => (
                   <StudentPartnerPicker
                     excludeId={student._id}
-                    label={
-                      field.state.value.length
-                        ? `${field.state.value.length} partner selected`
-                        : "Select a project partner"
-                    }
+                    placeholder="Select project partners"
+                    selectedIds={field.state.value}
                     onSelect={(id) =>
                       field.handleChange([
                         ...new Set([...field.state.value, id]),
@@ -704,10 +701,9 @@ function CollectionForm({
                           <FieldLabel>Desktop partner</FieldLabel>
                           <StudentPartnerPicker
                             excludeId={student._id}
-                            label={
-                              field.state.value
-                                ? "Partner selected"
-                                : "Select desktop partner"
+                            placeholder="Select desktop partner"
+                            selectedIds={
+                              field.state.value ? [field.state.value] : []
                             }
                             onSelect={(id) => field.handleChange(id)}
                           />
@@ -1292,11 +1288,13 @@ function RawPicker({
 
 function StudentPartnerPicker({
   excludeId,
-  label,
+  placeholder,
+  selectedIds,
   onSelect,
 }: {
   excludeId: string
-  label: string
+  placeholder: string
+  selectedIds: string[]
   onSelect: (id: string) => void
 }) {
   const [open, setOpen] = useState(false)
@@ -1312,6 +1310,15 @@ function StudentPartnerPicker({
         .toLowerCase()
         .includes(search.toLowerCase())
   )
+  const selectedStudents = selectedIds
+    .map((id) => students.data?.find((student) => student._id === id))
+    .filter((student): student is Student => Boolean(student))
+  const selectedNames = selectedStudents.map((student) => student.name)
+  const label = selectedNames.length
+    ? selectedNames.join(", ")
+    : selectedIds.length
+      ? `${selectedIds.length} selected`
+      : placeholder
   return (
     <>
       <Button
@@ -1321,8 +1328,19 @@ function StudentPartnerPicker({
         onClick={() => setOpen(true)}
       >
         <SearchIcon data-icon="inline-start" />
-        {label}
+        <span className="truncate" title={selectedNames.join(", ")}>
+          {label}
+        </span>
       </Button>
+      {selectedNames.length > 0 && (
+        <div className="flex flex-wrap gap-2">
+          {selectedStudents.map((student) => (
+            <Badge key={student._id} variant="secondary">
+              {student.name}
+            </Badge>
+          ))}
+        </div>
+      )}
       <CommandDialog
         open={open}
         onOpenChange={setOpen}
