@@ -935,8 +935,14 @@ function StudentsView({ onCollect }: { onCollect: (s: Student) => void }) {
               <TableBody>
                 {query.data.map((student) => (
                   <TableRow key={student._id}>
-                    <TableCell className="font-medium">
-                      {student.name}
+                    <TableCell>
+                      <Button
+                        variant="link"
+                        className="h-auto justify-start p-0 text-left font-medium"
+                        onClick={() => onCollect(student)}
+                      >
+                        {student.name}
+                      </Button>
                     </TableCell>
                     <TableCell>{student.phone}</TableCell>
                     <TableCell>
