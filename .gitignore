@@ -34,3 +34,6 @@ pnpm-debug.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+# Sensitive student source exports
+admission-candidate-names.json
+phone-numbers.json

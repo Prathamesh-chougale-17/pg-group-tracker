@@ -7,11 +7,9 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "db:import-cdac": "node --env-file=.env scripts/import-cdac.mjs",
     "lint": "eslint",
     "test": "vitest run",
     "test:watch": "vitest",
-    "db:compare-cdac": "node --env-file=.env scripts/compare-cdac.mjs",
     "format": "prettier --write \"**/*.{ts,tsx}\"",
     "typecheck": "tsc --noEmit"
   },

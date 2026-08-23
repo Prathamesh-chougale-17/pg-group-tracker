@@ -10,4 +10,4 @@ Production-focused Next.js application for verified student reconciliation, mobi
 
 Useful checks: `bun test`, `bun run typecheck`, `bun run lint`, and `bun run build`.
 
-`bun run db:compare-cdac` is a read-only comparison of local JSON fixtures with MongoDB. The import command refuses to run when raw source records already exist.
+Student identity source data lives only in MongoDB and is intentionally excluded from this repository.
