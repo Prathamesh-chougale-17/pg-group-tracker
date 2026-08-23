@@ -429,24 +429,13 @@ function GroupStudentsTable({
 }
 
 function DashboardView() {
-  const [selectedGroupId, setSelectedGroupId] = useState<GroupId | null>(null)
   const query = useQuery({
     queryKey: ["dashboard"],
     queryFn: () => api<Dashboard>("/api/dashboard"),
   })
-  const studentsQuery = useQuery({
-    queryKey: ["students", "overview-groups"],
-    queryFn: () => api<Student[]>("/api/students"),
-  })
-  if (query.isLoading || studentsQuery.isLoading) return <LoadingCards />
+  if (query.isLoading) return <LoadingCards />
   if (query.error) return <ErrorAlert error={query.error} />
-  if (studentsQuery.error) return <ErrorAlert error={studentsQuery.error} />
-  const { stats, occupancy } = query.data!,
-    selectedMembers = selectedGroupId
-      ? (studentsQuery.data ?? []).filter(
-          (student) => student.currentGroup === selectedGroupId
-        )
-      : []
+  const { stats, occupancy } = query.data!
   const cards = [
     ["Total students", stats.total],
     ["Assigned", stats.assigned],
@@ -469,29 +458,8 @@ function DashboardView() {
       </div>
       <section>
         <h2 className="mb-3 text-lg font-semibold">Live group occupancy</h2>
-        <OccupancyGrid
-          occupancy={occupancy}
-          selectedGroupId={selectedGroupId}
-          onSelect={setSelectedGroupId}
-        />
+        <OccupancyGrid occupancy={occupancy} />
       </section>
-      {selectedGroupId && (
-        <Card>
-          <CardHeader>
-            <CardTitle>{selectedGroupId} students</CardTitle>
-            <CardDescription>
-              {selectedMembers.length} students currently assigned to this
-              group.
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <GroupStudentsTable
-              groupId={selectedGroupId}
-              members={selectedMembers}
-            />
-          </CardContent>
-        </Card>
-      )}
     </div>
   )
 }
@@ -835,31 +803,12 @@ function CollectionForm({
   )
 }
 
-function OccupancyGrid({
-  occupancy,
-  selectedGroupId,
-  onSelect,
-}: {
-  occupancy: Occupancy[]
-  selectedGroupId?: GroupId | null
-  onSelect?: (groupId: GroupId) => void
-}) {
+function OccupancyGrid({ occupancy }: { occupancy: Occupancy[] }) {
   return (
     <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
       {occupancy.map((group) => (
-        <button
-          key={group.id}
-          type="button"
-          className="text-left"
-          aria-pressed={selectedGroupId === group.id}
-          onClick={() => onSelect?.(group.id as GroupId)}
-        >
-          <Card
-            className={cn(
-              "h-full transition-colors hover:bg-muted/50",
-              selectedGroupId === group.id && "border-primary bg-muted/50"
-            )}
-          >
+        <Link key={group.id} href={`/groups/${group.id}`} className="text-left">
+          <Card className="h-full transition-colors hover:bg-muted/50">
             <CardHeader>
               <div className="flex items-center justify-between">
                 <CardTitle>{group.id}</CardTitle>
@@ -891,8 +840,12 @@ function OccupancyGrid({
                 </Badge>
               )}
             </CardContent>
+            <CardFooter className="justify-end text-sm font-medium">
+              View {group.id}
+              <ArrowRightIcon />
+            </CardFooter>
           </Card>
-        </button>
+        </Link>
       ))}
     </div>
   )
