@@ -190,14 +190,24 @@ export function TrackerApp({
           })}
         </nav>
         {section === "collect" && (
-          <CollectionMode selected={selected} onSelect={setLocalSelected} />
+          <CollectionMode
+            selected={selected}
+            onSelect={(student) => {
+              setLocalSelected(student)
+              router.push(
+                student
+                  ? `/collect/${encodeURIComponent(student._id)}`
+                  : "/collect"
+              )
+            }}
+          />
         )}
         {section === "overview" && <DashboardView />}
         {section === "students" && (
           <StudentsView
             onCollect={(student) => {
               setLocalSelected(student)
-              router.push(`/collect?student=${encodeURIComponent(student._id)}`)
+              router.push(`/collect/${encodeURIComponent(student._id)}`)
             }}
           />
         )}
