@@ -75,7 +75,12 @@ import {
 import { Textarea } from "@/components/ui/textarea"
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group"
 import { ThemeToggle } from "@/components/theme-toggle"
-import { GROUP_IDS, type CurrentGroup, type Gender } from "@/lib/domain/types"
+import {
+  GROUP_IDS,
+  type CurrentGroup,
+  type Gender,
+  type GroupId,
+} from "@/lib/domain/types"
 import { cn } from "@/lib/utils"
 
 type Student = {
@@ -143,9 +148,11 @@ const navigation = [
 export function TrackerApp({
   section,
   initialStudentId,
+  selectedGroupId,
 }: {
   section: TrackerSection
   initialStudentId?: string
+  selectedGroupId?: GroupId
 }) {
   const router = useRouter()
   const [localSelected, setLocalSelected] = useState<Student | null>(null)
@@ -222,14 +229,16 @@ export function TrackerApp({
             }}
           />
         )}
-        {section === "groups" && <GroupsView />}
+        {section === "groups" && (
+          <GroupsView selectedGroupId={selectedGroupId} />
+        )}
         {section === "reconcile" && <ReconciliationView />}
       </main>
     </div>
   )
 }
 
-function GroupsView() {
+function GroupsView({ selectedGroupId }: { selectedGroupId?: GroupId }) {
   const query = useQuery({
     queryKey: ["students", "groups"],
     queryFn: () => api<Student[]>("/api/students"),
@@ -239,6 +248,47 @@ function GroupsView() {
   if (query.error) return <ErrorAlert error={query.error} />
 
   const students = query.data ?? []
+  if (selectedGroupId) {
+    const members = students.filter(
+        (student) => student.currentGroup === selectedGroupId
+      ),
+      males = members.filter((student) => student.gender === "BOY").length,
+      females = members.length - males
+
+    return (
+      <div className="flex flex-col gap-6">
+        <div className="flex flex-wrap items-end justify-between gap-3">
+          <div>
+            <Link
+              href="/groups"
+              className="mb-2 inline-flex items-center text-sm text-muted-foreground hover:text-foreground"
+            >
+              ← All groups
+            </Link>
+            <h1 className="text-2xl font-semibold tracking-tight">
+              {selectedGroupId}
+            </h1>
+            <p className="text-sm text-muted-foreground">
+              {members.length} students · {males} males · {females} females
+            </p>
+          </div>
+          <Badge variant="secondary">{members.length} total</Badge>
+        </div>
+        <Card>
+          <CardHeader>
+            <CardTitle>{selectedGroupId} students</CardTitle>
+            <CardDescription>
+              Current students assigned to this group.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <GroupStudentsTable groupId={selectedGroupId} members={members} />
+          </CardContent>
+        </Card>
+      </div>
+    )
+  }
+
   return (
     <div className="flex flex-col gap-6">
       <div>
@@ -247,85 +297,99 @@ function GroupsView() {
           Students currently assigned to D1 through D6.
         </p>
       </div>
-      {GROUP_IDS.map((groupId) => {
-        const members = students.filter(
-            (student) => student.currentGroup === groupId
-          ),
-          boys = members.filter((student) => student.gender === "BOY").length,
-          girls = members.length - boys
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        {GROUP_IDS.map((groupId) => {
+          const members = students.filter(
+              (student) => student.currentGroup === groupId
+            ),
+            males = members.filter(
+              (student) => student.gender === "BOY"
+            ).length,
+            females = members.length - males
 
-        return (
-          <Card key={groupId}>
-            <CardHeader>
-              <div className="flex flex-wrap items-center justify-between gap-2">
-                <div>
+          return (
+            <Link key={groupId} href={`/groups/${groupId}`}>
+              <Card className="h-full transition-colors hover:bg-muted/50">
+                <CardHeader>
                   <CardTitle>{groupId}</CardTitle>
                   <CardDescription>
-                    {members.length} students · {boys} males · {girls} females
+                    {members.length} students · {males} males · {females}{" "}
+                    females
                   </CardDescription>
-                </div>
-                <Badge variant="secondary">{members.length} total</Badge>
-              </div>
-            </CardHeader>
-            <CardContent>
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Student</TableHead>
-                    <TableHead>Phone</TableHead>
-                    <TableHead>Gender</TableHead>
-                    <TableHead>Visit status</TableHead>
-                    <TableHead>Desktop</TableHead>
-                    <TableHead>Project group</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {members.length ? (
-                    members.map((student) => (
-                      <TableRow key={student._id}>
-                        <TableCell className="font-medium">
-                          <Link href={`/collect/${student._id}`}>
-                            {student.name}
-                          </Link>
-                        </TableCell>
-                        <TableCell>{student.phone}</TableCell>
-                        <TableCell>
-                          {student.gender === "BOY" ? "Male" : "Female"}
-                        </TableCell>
-                        <TableCell>
-                          <Badge
-                            variant={student.visited ? "secondary" : "outline"}
-                          >
-                            {student.visited ? "Visited" : "Not visited"}
-                          </Badge>
-                        </TableCell>
-                        <TableCell>
-                          {student.desktopRequired === null
-                            ? "Not decided"
-                            : student.desktopRequired
-                              ? "Yes"
-                              : "No"}
-                        </TableCell>
-                        <TableCell>{student.projectGroup ?? "—"}</TableCell>
-                      </TableRow>
-                    ))
-                  ) : (
-                    <TableRow>
-                      <TableCell
-                        colSpan={6}
-                        className="h-20 text-center text-muted-foreground"
-                      >
-                        No students assigned to {groupId}.
-                      </TableCell>
-                    </TableRow>
-                  )}
-                </TableBody>
-              </Table>
-            </CardContent>
-          </Card>
-        )
-      })}
+                </CardHeader>
+                <CardFooter className="justify-between">
+                  <Badge variant="secondary">{members.length} total</Badge>
+                  <span className="inline-flex items-center gap-1 text-sm font-medium">
+                    View students
+                    <ArrowRightIcon />
+                  </span>
+                </CardFooter>
+              </Card>
+            </Link>
+          )
+        })}
+      </div>
     </div>
+  )
+}
+
+function GroupStudentsTable({
+  groupId,
+  members,
+}: {
+  groupId: GroupId
+  members: Student[]
+}) {
+  return (
+    <Table>
+      <TableHeader>
+        <TableRow>
+          <TableHead>Student</TableHead>
+          <TableHead>Phone</TableHead>
+          <TableHead>Gender</TableHead>
+          <TableHead>Visit status</TableHead>
+          <TableHead>Desktop</TableHead>
+          <TableHead>Project group</TableHead>
+        </TableRow>
+      </TableHeader>
+      <TableBody>
+        {members.length ? (
+          members.map((student) => (
+            <TableRow key={student._id}>
+              <TableCell className="font-medium">
+                <Link href={`/collect/${student._id}`}>{student.name}</Link>
+              </TableCell>
+              <TableCell>{student.phone}</TableCell>
+              <TableCell>
+                {student.gender === "BOY" ? "Male" : "Female"}
+              </TableCell>
+              <TableCell>
+                <Badge variant={student.visited ? "secondary" : "outline"}>
+                  {student.visited ? "Visited" : "Not visited"}
+                </Badge>
+              </TableCell>
+              <TableCell>
+                {student.desktopRequired === null
+                  ? "Not decided"
+                  : student.desktopRequired
+                    ? "Yes"
+                    : "No"}
+              </TableCell>
+              <TableCell>{student.projectGroup ?? "—"}</TableCell>
+            </TableRow>
+          ))
+        ) : (
+          <TableRow>
+            <TableCell
+              colSpan={6}
+              className="h-20 text-center text-muted-foreground"
+            >
+              No students assigned to {groupId}.
+            </TableCell>
+          </TableRow>
+        )}
+      </TableBody>
+    </Table>
   )
 }
 
