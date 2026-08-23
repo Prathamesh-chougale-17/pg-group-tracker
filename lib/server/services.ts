@@ -7,6 +7,7 @@ import {
   placementRuleError,
   rawReport,
   similarNames,
+  studentSearchClauses,
 } from "@/lib/domain/logic"
 import { ensureIndexes, getDb, getRawDb } from "./mongodb"
 import { GROUP_IDS, type Gender, type Student } from "@/lib/domain/types"
@@ -105,16 +106,7 @@ export async function listStudents(
   const db = await studentsDb(),
     query: Record<string, unknown> = {}
   if (filters.q) {
-    const normalized = normalizeName(filters.q),
-      phone = normalizePhone(filters.q)
-    query.$or = [
-      {
-        normalizedName: {
-          $regex: normalized.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"),
-        },
-      },
-      { normalizedPhone: { $regex: phone } },
-    ]
+    query.$or = studentSearchClauses(filters.q)
   }
   if (filters.group === "UNASSIGNED") query.currentGroup = null
   else if (filters.group) query.currentGroup = filters.group

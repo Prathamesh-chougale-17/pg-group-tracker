@@ -14,6 +14,19 @@ export const normalizeName = (value: string) =>
     .toUpperCase()
     .replace(/[^A-Z ]/g, "")
     .replace(/\s+/g, " ")
+export function studentSearchClauses(value: string) {
+  const normalized = normalizeName(value)
+  const phone = normalizePhone(value)
+  const clauses: Record<string, { $regex: string }>[] = []
+  if (normalized)
+    clauses.push({
+      normalizedName: {
+        $regex: normalized.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"),
+      },
+    })
+  if (phone) clauses.push({ normalizedPhone: { $regex: phone } })
+  return clauses
+}
 export function levenshtein(a: string, b: string) {
   const row = Array.from({ length: b.length + 1 }, (_, i) => i)
   for (let i = 1; i <= a.length; i++) {

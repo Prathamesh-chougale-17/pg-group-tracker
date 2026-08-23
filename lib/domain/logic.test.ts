@@ -6,6 +6,7 @@ import {
   placementRuleError,
   rawReport,
   similarNames,
+  studentSearchClauses,
 } from "./logic"
 import {
   rawCandidateSchema,
@@ -76,6 +77,18 @@ describe("raw source validation", () => {
 describe("student rules", () => {
   it("normalizes Indian phone numbers", () =>
     expect(normalizePhone("+91 98765-43210")).toBe("9876543210"))
+  it("does not add an empty phone regex to a name-only search", () =>
+    expect(studentSearchClauses("Prathamesh Rajaram Chougale")).toEqual([
+      {
+        normalizedName: {
+          $regex: "PRATHAMESH RAJARAM CHOUGALE",
+        },
+      },
+    ]))
+  it("does not add an empty name regex to a phone-only search", () =>
+    expect(studentSearchClauses("7218909266")).toEqual([
+      { normalizedPhone: { $regex: "7218909266" } },
+    ]))
   it("warns for exact and fuzzy names", () =>
     expect(
       similarNames("Prathmesh Chougale", [
