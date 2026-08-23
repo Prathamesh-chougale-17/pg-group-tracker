@@ -11,6 +11,7 @@ import {
   CheckIcon,
   DatabaseIcon,
   LayoutDashboardIcon,
+  LockKeyholeIcon,
   MonitorIcon,
   PencilIcon,
   PlusIcon,
@@ -204,6 +205,22 @@ export function TrackerApp({
               Sunbeam PGCP · group assignment
             </p>
           </div>
+          {(section === "students" ||
+            section === "reconcile" ||
+            section === "collect") && (
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={async () => {
+                await fetch("/api/auth/logout", { method: "POST" })
+                router.replace("/overview")
+                router.refresh()
+              }}
+            >
+              <LockKeyholeIcon data-icon="inline-start" />
+              Lock
+            </Button>
+          )}
           <ThemeToggle />
         </div>
       </header>

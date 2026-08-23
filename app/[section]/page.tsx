@@ -1,6 +1,7 @@
-import { notFound } from "next/navigation"
+import { notFound, redirect } from "next/navigation"
 
 import { TrackerApp, type TrackerSection } from "@/components/tracker-app"
+import { isAuthenticated } from "@/lib/server/auth"
 
 const sections = ["overview", "students", "groups", "reconcile"] as const
 
@@ -21,6 +22,11 @@ export default async function SectionPage({
 }) {
   const { section } = await params
   if (!isTrackerSection(section)) notFound()
+  if (
+    (section === "students" || section === "reconcile") &&
+    !(await isAuthenticated())
+  )
+    redirect(`/login?next=/${section}`)
 
   const student = (await searchParams).student
   return (

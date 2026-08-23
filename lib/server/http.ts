@@ -12,10 +12,7 @@ export function errorResponse(error: unknown) {
   if (error instanceof Error && error.message === "NOT_FOUND")
     return Response.json({ error: "Record not found" }, { status: 404 })
   if (error instanceof Error && error.message === "UNAUTHORIZED")
-    return Response.json(
-      { error: "Incorrect delete password" },
-      { status: 401 }
-    )
+    return Response.json({ error: "Authentication required" }, { status: 401 })
   console.error(
     "API request failed",
     error instanceof Error ? error.message : "Unknown error"
