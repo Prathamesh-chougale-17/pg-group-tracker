@@ -434,7 +434,6 @@ function DashboardView() {
     ["Total students", stats.total],
     ["Assigned", stats.assigned],
     ["Unassigned", stats.unassigned],
-    ["Not sure", stats.notSure],
     ["Desktop users", stats.desktopUsers],
     ["Project groups", stats.projectGroups],
     ["Exceptions", stats.exceptions],
@@ -588,12 +587,7 @@ function CollectionForm({
   const form = useForm({
     defaultValues: {
       currentGroup: student.currentGroup as CurrentGroup,
-      groupAnswer:
-        student.currentGroup === "NOT_SURE"
-          ? "NOT_SURE"
-          : student.currentGroup
-            ? "YES"
-            : "NO",
+      groupAnswer: student.currentGroup ? "YES" : "NO",
       projectPartnerIds: [] as string[],
       desktopRequired: student.desktopRequired,
       desktopPartnerId: student.desktopPartner,
@@ -602,12 +596,7 @@ function CollectionForm({
     onSubmit: async ({ value }) =>
       mutation.mutate({
         ...value,
-        currentGroup:
-          value.groupAnswer === "NO"
-            ? null
-            : value.groupAnswer === "NOT_SURE"
-              ? "NOT_SURE"
-              : value.currentGroup,
+        currentGroup: value.groupAnswer === "NO" ? null : value.currentGroup,
         expectedUpdatedAt: student.updatedAt,
       }),
   })
@@ -650,11 +639,10 @@ function CollectionForm({
                       field.handleChange(value[0] ?? "NO")
                     }
                     variant="outline"
-                    className="grid w-full grid-cols-3"
+                    className="grid w-full grid-cols-2"
                   >
                     <ToggleGroupItem value="YES">Yes</ToggleGroupItem>
                     <ToggleGroupItem value="NO">No group yet</ToggleGroupItem>
-                    <ToggleGroupItem value="NOT_SURE">Not sure</ToggleGroupItem>
                   </ToggleGroup>
                 )}
               </form.Field>
@@ -1140,7 +1128,6 @@ function EditStudentDialog({ student }: { student: Student }) {
                     <SelectContent>
                       <SelectGroup>
                         <SelectItem value="UNASSIGNED">Unassigned</SelectItem>
-                        <SelectItem value="NOT_SURE">Not sure</SelectItem>
                         {GROUP_IDS.map((groupId) => (
                           <SelectItem key={groupId} value={groupId}>
                             {groupId}

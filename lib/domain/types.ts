@@ -1,6 +1,6 @@
 export const GROUP_IDS = ["D1", "D2", "D3", "D4", "D5", "D6"] as const
 export type GroupId = (typeof GROUP_IDS)[number]
-export type CurrentGroup = GroupId | "NOT_SURE" | null
+export type CurrentGroup = GroupId | null
 export type Gender = "BOY" | "GIRL"
 
 export interface Student {

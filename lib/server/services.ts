@@ -20,6 +20,7 @@ import type {
 
 const publicStudent = (student: Record<string, unknown>) => {
   const safe = { ...student }
+  if (safe.currentGroup === "NOT_SURE") safe.currentGroup = null
   delete safe.source
   delete safe.normalizedName
   delete safe.normalizedPhone
@@ -76,7 +77,7 @@ async function assertPlacementRules(
           {
             _id: { $in: projectPartnerIds },
             currentGroup: {
-              $nin: [null, "NOT_SURE", concreteGroup],
+              $in: GROUP_IDS.filter((groupId) => groupId !== concreteGroup),
             },
           },
           { session }
@@ -533,15 +534,14 @@ export async function deleteStudent(id: string) {
 export async function dashboard() {
   const db = await studentsDb(),
     students = await db.collection<Student>("students").find({}).toArray()
-  const assigned = students.filter(
-    (s) => s.currentGroup && s.currentGroup !== "NOT_SURE"
+  const assigned = students.filter((student) =>
+    GROUP_IDS.some((groupId) => groupId === student.currentGroup)
   ).length
   return {
     stats: {
       total: students.length,
       assigned,
-      unassigned: students.filter((s) => s.currentGroup === null).length,
-      notSure: students.filter((s) => s.currentGroup === "NOT_SURE").length,
+      unassigned: students.length - assigned,
       desktopUsers: students.filter((s) => s.desktopRequired).length,
       exceptions: students.filter((s) => s.isException).length,
       projectGroups: await db.collection("projectGroups").countDocuments(),

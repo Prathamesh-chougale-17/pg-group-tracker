@@ -17,7 +17,7 @@ export const rawPhoneSchema = z.object({
   sourceIndex: z.number().int().nonnegative(),
 })
 export const genderSchema = z.enum(["BOY", "GIRL"])
-export const currentGroupSchema = z.enum([...GROUP_IDS, "NOT_SURE"]).nullable()
+export const currentGroupSchema = z.enum(GROUP_IDS).nullable()
 export const studentCreateSchema = z.object({
   name: z.string().trim().min(2).max(120),
   phone: z.string().trim().min(10).max(18),

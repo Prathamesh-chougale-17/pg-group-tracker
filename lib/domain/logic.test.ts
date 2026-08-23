@@ -86,7 +86,7 @@ describe("student rules", () => {
         },
       ])
     ).toHaveLength(1))
-  it("accepts null and NOT_SURE current groups", () => {
+  it("accepts unassigned students and rejects the removed NOT_SURE value", () => {
     const base = {
       projectPartnerIds: [],
       desktopRequired: null,
@@ -96,10 +96,9 @@ describe("student rules", () => {
     expect(
       studentUpdateSchema.parse({ ...base, currentGroup: null }).currentGroup
     ).toBeNull()
-    expect(
+    expect(() =>
       studentUpdateSchema.parse({ ...base, currentGroup: "NOT_SURE" })
-        .currentGroup
-    ).toBe("NOT_SURE")
+    ).toThrow()
   })
   it("reports negative remaining for legacy over-capacity data", () => {
     const students = Array.from({ length: 41 }, () => ({
