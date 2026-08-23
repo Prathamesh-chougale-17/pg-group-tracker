@@ -757,15 +757,22 @@ function CollectionForm({
                           ? "YES"
                           : "NO",
                     ]}
-                    onValueChange={(value) =>
-                      field.handleChange(
+                    onValueChange={(value) => {
+                      const required =
                         value[0] === "YES"
                           ? true
                           : value[0] === "NO"
                             ? false
                             : null
-                      )
-                    }
+
+                      field.handleChange(required)
+                      if (required) {
+                        form.setFieldValue("groupAnswer", "YES")
+                        form.setFieldValue("currentGroup", "D6")
+                      } else {
+                        form.setFieldValue("desktopPartnerId", null)
+                      }
+                    }}
                     variant="outline"
                   >
                     <ToggleGroupItem value="YES">Yes</ToggleGroupItem>
@@ -797,8 +804,8 @@ function CollectionForm({
                             <MonitorIcon />
                             <AlertTitle>Desktop users → D6</AlertTitle>
                             <AlertDescription>
-                              The requirement is recorded independently from the
-                              reported current group.
+                              This student has been assigned to D6. Select the
+                              desktop partner they will share with.
                             </AlertDescription>
                           </Alert>
                         </Field>

@@ -1,14 +1,15 @@
 import "server-only"
-import { ObjectId } from "mongodb"
+import { ObjectId, type ClientSession, type Db } from "mongodb"
 import {
   calculateOccupancy,
   normalizeName,
   normalizePhone,
+  placementRuleError,
   rawReport,
   similarNames,
 } from "@/lib/domain/logic"
 import { ensureIndexes, getDb, getRawDb } from "./mongodb"
-import type { Gender, Student } from "@/lib/domain/types"
+import { GROUP_IDS, type Gender, type Student } from "@/lib/domain/types"
 import type { z } from "zod"
 import type {
   reconciliationMatchSchema,
@@ -26,6 +27,72 @@ const publicStudent = (student: Record<string, unknown>) => {
 }
 export async function studentsDb() {
   return getDb()
+}
+
+async function assertPlacementRules(
+  db: Db,
+  student: Student,
+  input: {
+    currentGroup: Student["currentGroup"]
+    gender: Student["gender"]
+    desktopRequired: boolean | null
+    desktopPartnerId: string | null
+    projectPartnerIds?: string[]
+  },
+  session: ClientSession
+) {
+  const groupId = GROUP_IDS.find((id) => id === input.currentGroup)
+  const placementChanged =
+    student.currentGroup !== input.currentGroup ||
+    student.gender !== input.gender
+  const sameGenderCount =
+    groupId && placementChanged
+      ? await db.collection<Student>("students").countDocuments(
+          {
+            _id: { $ne: student._id },
+            currentGroup: groupId,
+            gender: input.gender,
+          },
+          { session }
+        )
+      : 0
+  const desktopPartner = input.desktopPartnerId
+    ? await db
+        .collection<Student>("students")
+        .findOne({ _id: input.desktopPartnerId }, { session })
+    : null
+
+  let projectPartnerIds = input.projectPartnerIds
+  if (projectPartnerIds === undefined && student.projectGroup) {
+    const projectGroup = await db
+      .collection<{ _id: string; members: string[] }>("projectGroups")
+      .findOne({ _id: student.projectGroup }, { session })
+    projectPartnerIds = projectGroup?.members.filter((id) => id !== student._id)
+  }
+  const concreteGroup = groupId
+  const conflictingProjectPartner =
+    concreteGroup && projectPartnerIds?.length
+      ? await db.collection<Student>("students").findOne(
+          {
+            _id: { $in: projectPartnerIds },
+            currentGroup: {
+              $nin: [null, "NOT_SURE", concreteGroup],
+            },
+          },
+          { session }
+        )
+      : null
+
+  const error = placementRuleError({
+    currentGroup: input.currentGroup,
+    gender: input.gender,
+    desktopRequired: input.desktopRequired,
+    desktopPartnerId: input.desktopPartnerId,
+    desktopPartnerGroup: desktopPartner?.currentGroup,
+    sameGenderCount,
+    conflictingProjectPartnerName: conflictingProjectPartner?.name,
+  })
+  if (error) throw new Error(`CONFLICT:${error}`)
 }
 export async function listStudents(
   filters: {
@@ -136,6 +203,18 @@ export async function updateStudent(
   let updated: Student | null = null
   try {
     await session.withTransaction(async () => {
+      await assertPlacementRules(
+        db,
+        student,
+        {
+          currentGroup: input.currentGroup,
+          gender: student.gender,
+          desktopRequired: input.desktopRequired,
+          desktopPartnerId: input.desktopPartnerId,
+          projectPartnerIds: input.projectPartnerIds,
+        },
+        session
+      )
       if (student.projectGroup && !input.projectPartnerIds.length) {
         await db
           .collection<{ _id: string }>("projectGroups")
@@ -307,6 +386,18 @@ export async function adminUpdateStudent(
   let updated: Student | null = null
   try {
     await session.withTransaction(async () => {
+      await assertPlacementRules(
+        db,
+        student,
+        {
+          currentGroup: input.currentGroup,
+          gender: input.gender,
+          desktopRequired: input.desktopRequired,
+          desktopPartnerId:
+            input.desktopRequired === true ? student.desktopPartner : null,
+        },
+        session
+      )
       if (input.desktopRequired !== true && student.desktopPartner) {
         const pairKey = [id, student.desktopPartner].sort().join(":")
         await db.collection("desktopPairs").deleteOne({ pairKey }, { session })

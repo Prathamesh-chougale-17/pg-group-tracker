@@ -1,4 +1,4 @@
-import type { Student } from "./types"
+import type { CurrentGroup, Gender, Student } from "./types"
 import { GROUP_CAPACITIES, GROUP_IDS } from "./types"
 import { rawCandidateSchema, rawPhoneSchema } from "./schemas"
 
@@ -64,6 +64,37 @@ export function calculateOccupancy(
       },
     }
   })
+}
+export function placementRuleError(input: {
+  currentGroup: CurrentGroup
+  gender: Gender
+  desktopRequired: boolean | null
+  desktopPartnerId: string | null
+  desktopPartnerGroup?: CurrentGroup
+  sameGenderCount: number
+  conflictingProjectPartnerName?: string
+}) {
+  if (input.desktopRequired) {
+    if (input.currentGroup !== "D6")
+      return "Students using desktops must be assigned to D6"
+    if (!input.desktopPartnerId)
+      return "Students using desktops must select a desktop partner"
+    if (input.desktopPartnerGroup !== "D6")
+      return "The selected desktop partner must also be assigned to D6"
+  }
+
+  const groupId = GROUP_IDS.find((id) => id === input.currentGroup)
+  if (groupId) {
+    const capacity = GROUP_CAPACITIES[groupId],
+      limit = input.gender === "BOY" ? capacity.boys : capacity.girls
+    if (input.sameGenderCount >= limit)
+      return `${groupId} has reached its ${input.gender === "BOY" ? "male" : "female"} capacity of ${limit}`
+  }
+
+  if (input.conflictingProjectPartnerName)
+    return `${input.conflictingProjectPartnerName} is assigned to a different group. Project partners must remain in the same group`
+
+  return null
 }
 export function rawReport(
   documents: unknown[],

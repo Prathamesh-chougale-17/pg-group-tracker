@@ -4,6 +4,7 @@ import {
   nextUnvisited,
   normalizeName,
   normalizePhone,
+  placementRuleError,
   rawReport,
   similarNames,
 } from "./logic"
@@ -102,7 +103,7 @@ describe("student rules", () => {
         .currentGroup
     ).toBe("NOT_SURE")
   })
-  it("keeps over-capacity groups selectable and reports negative remaining", () => {
+  it("reports negative remaining for legacy over-capacity data", () => {
     const students = Array.from({ length: 41 }, () => ({
       currentGroup: "D1" as const,
       gender: "BOY" as const,
@@ -111,6 +112,58 @@ describe("student rules", () => {
     expect(d1.total).toBe(41)
     expect(d1.remaining.total).toBe(-1)
   })
+  it("rejects a placement when its gender capacity is full", () =>
+    expect(
+      placementRuleError({
+        currentGroup: "D1",
+        gender: "GIRL",
+        desktopRequired: false,
+        desktopPartnerId: null,
+        sameGenderCount: 8,
+      })
+    ).toContain("female capacity of 8"))
+  it("requires desktop users to be paired in D6", () => {
+    expect(
+      placementRuleError({
+        currentGroup: "D1",
+        gender: "BOY",
+        desktopRequired: true,
+        desktopPartnerId: null,
+        sameGenderCount: 0,
+      })
+    ).toContain("assigned to D6")
+    expect(
+      placementRuleError({
+        currentGroup: "D6",
+        gender: "BOY",
+        desktopRequired: true,
+        desktopPartnerId: null,
+        sameGenderCount: 0,
+      })
+    ).toContain("select a desktop partner")
+  })
+  it("requires the desktop partner to also be in D6", () =>
+    expect(
+      placementRuleError({
+        currentGroup: "D6",
+        gender: "BOY",
+        desktopRequired: true,
+        desktopPartnerId: "partner",
+        desktopPartnerGroup: "D5",
+        sameGenderCount: 0,
+      })
+    ).toContain("partner must also be assigned to D6"))
+  it("rejects conflicting project partner group assignments", () =>
+    expect(
+      placementRuleError({
+        currentGroup: "D2",
+        gender: "BOY",
+        desktopRequired: false,
+        desktopPartnerId: null,
+        sameGenderCount: 0,
+        conflictingProjectPartnerName: "A Partner",
+      })
+    ).toContain("Project partners must remain in the same group"))
   it("calculates gender occupancy", () => {
     const d6 = calculateOccupancy([
       { currentGroup: "D6", gender: "BOY" },
