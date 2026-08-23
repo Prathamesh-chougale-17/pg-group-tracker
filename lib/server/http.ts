@@ -11,6 +11,11 @@ export function errorResponse(error: unknown) {
     return Response.json({ error: error.message.slice(9) }, { status: 409 })
   if (error instanceof Error && error.message === "NOT_FOUND")
     return Response.json({ error: "Record not found" }, { status: 404 })
+  if (error instanceof Error && error.message === "UNAUTHORIZED")
+    return Response.json(
+      { error: "Incorrect delete password" },
+      { status: 401 }
+    )
   console.error(
     "API request failed",
     error instanceof Error ? error.message : "Unknown error"

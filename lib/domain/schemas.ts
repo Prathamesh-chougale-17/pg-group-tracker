@@ -34,6 +34,19 @@ export const studentUpdateSchema = z.object({
   markVisited: z.boolean(),
   expectedUpdatedAt: z.string().datetime().optional(),
 })
+export const studentAdminUpdateSchema = z.object({
+  name: z.string().trim().min(2).max(120),
+  phone: z.string().trim().min(10).max(18),
+  gender: genderSchema,
+  currentGroup: currentGroupSchema,
+  visited: z.boolean(),
+  desktopRequired: z.boolean().nullable(),
+  notes: z.string().trim().max(1000),
+  expectedUpdatedAt: z.string().datetime().optional(),
+})
+export const studentDeleteSchema = z.object({
+  password: z.string().min(1),
+})
 export const reconciliationMatchSchema = z.object({
   sessionId: z.string().min(1),
   candidateNameDocumentId: z.string().regex(/^candidate_name:/),

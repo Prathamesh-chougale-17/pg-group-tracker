@@ -12,6 +12,7 @@ import type { Gender, Student } from "@/lib/domain/types"
 import type { z } from "zod"
 import type {
   reconciliationMatchSchema,
+  studentAdminUpdateSchema,
   studentCreateSchema,
   studentUpdateSchema,
 } from "@/lib/domain/schemas"
@@ -274,6 +275,175 @@ export async function updateStudent(
   }
   if (!updated) throw new Error("CONFLICT:The update could not be completed")
   return publicStudent(updated as unknown as Record<string, unknown>)
+}
+
+export async function adminUpdateStudent(
+  id: string,
+  input: z.infer<typeof studentAdminUpdateSchema>
+) {
+  const db = await studentsDb()
+  await ensureIndexes(db)
+  const student = await db.collection<Student>("students").findOne({ _id: id })
+  if (!student) throw new Error("NOT_FOUND")
+
+  const normalizedPhone = normalizePhone(input.phone)
+  if (normalizedPhone.length !== 10)
+    throw new Error("CONFLICT:Enter a valid 10-digit Indian phone number")
+  const duplicate = await db.collection<Student>("students").findOne({
+    _id: { $ne: id },
+    normalizedPhone,
+  })
+  if (duplicate)
+    throw new Error(
+      `CONFLICT:Phone number already belongs to ${duplicate.name}`
+    )
+
+  const now = new Date(),
+    filter: Record<string, unknown> = { _id: id }
+  if (input.expectedUpdatedAt)
+    filter.updatedAt = new Date(input.expectedUpdatedAt)
+
+  const session = db.client.startSession()
+  let updated: Student | null = null
+  try {
+    await session.withTransaction(async () => {
+      if (input.desktopRequired !== true && student.desktopPartner) {
+        const pairKey = [id, student.desktopPartner].sort().join(":")
+        await db.collection("desktopPairs").deleteOne({ pairKey }, { session })
+        await db
+          .collection<Student>("students")
+          .updateOne(
+            { _id: student.desktopPartner },
+            { $set: { desktopPartner: null, updatedAt: now } },
+            { session }
+          )
+      }
+
+      updated = await db.collection<Student>("students").findOneAndUpdate(
+        filter,
+        {
+          $set: {
+            name: input.name,
+            normalizedName: normalizeName(input.name),
+            phone: input.phone,
+            normalizedPhone,
+            gender: input.gender,
+            currentGroup: input.currentGroup,
+            visited: input.visited,
+            desktopRequired: input.desktopRequired,
+            desktopPartner:
+              input.desktopRequired === true ? student.desktopPartner : null,
+            notes: input.notes,
+            updatedAt: now,
+          },
+        },
+        { returnDocument: "after", session }
+      )
+      if (!updated)
+        throw new Error(
+          "CONFLICT:This student changed elsewhere. Refresh and try again."
+        )
+
+      await db
+        .collection("reconciliationMatches")
+        .updateMany(
+          { studentId: id },
+          { $set: { gender: input.gender } },
+          { session }
+        )
+      await db.collection("auditEvents").insertOne(
+        {
+          type: "STUDENT_ADMIN_UPDATED",
+          studentId: id,
+          at: now,
+        },
+        { session }
+      )
+    })
+  } finally {
+    await session.endSession()
+  }
+  if (!updated) throw new Error("CONFLICT:The update could not be completed")
+  return publicStudent(updated as unknown as Record<string, unknown>)
+}
+
+export async function deleteStudent(id: string) {
+  const db = await studentsDb()
+  const student = await db.collection<Student>("students").findOne({ _id: id })
+  if (!student) throw new Error("NOT_FOUND")
+
+  const now = new Date(),
+    session = db.client.startSession()
+  try {
+    await session.withTransaction(async () => {
+      const projectGroups = db.collection<{
+          _id: string
+          members: string[]
+          membersKey: string
+          name: string
+          updatedAt: Date
+        }>("projectGroups"),
+        projectGroup = await projectGroups.findOne({ members: id }, { session })
+      if (projectGroup) {
+        const remaining = projectGroup.members.filter(
+          (memberId) => memberId !== id
+        )
+        if (remaining.length >= 2) {
+          await projectGroups.updateOne(
+            { _id: projectGroup._id },
+            {
+              $set: {
+                members: remaining,
+                membersKey: [...remaining].sort().join(":"),
+                name: `Project group · ${remaining.length} members`,
+                updatedAt: now,
+              },
+            },
+            { session }
+          )
+        } else {
+          await projectGroups.deleteOne({ _id: projectGroup._id }, { session })
+          await db
+            .collection<Student>("students")
+            .updateMany(
+              { _id: { $in: remaining } },
+              { $set: { projectGroup: null, updatedAt: now } },
+              { session }
+            )
+        }
+      }
+
+      await db
+        .collection("desktopPairs")
+        .deleteMany({ $or: [{ student1: id }, { student2: id }] }, { session })
+      await db
+        .collection<Student>("students")
+        .updateMany(
+          { desktopPartner: id },
+          { $set: { desktopPartner: null, updatedAt: now } },
+          { session }
+        )
+      await db
+        .collection("reconciliationMatches")
+        .deleteMany({ studentId: id }, { session })
+      const result = await db
+        .collection<Student>("students")
+        .deleteOne({ _id: id }, { session })
+      if (!result.deletedCount) throw new Error("NOT_FOUND")
+      await db.collection("auditEvents").insertOne(
+        {
+          type: "STUDENT_DELETED",
+          studentId: id,
+          name: student.name,
+          at: now,
+        },
+        { session }
+      )
+    })
+  } finally {
+    await session.endSession()
+  }
+  return { id }
 }
 export async function dashboard() {
   const db = await studentsDb(),

@@ -12,12 +12,25 @@ import {
   DatabaseIcon,
   LayoutDashboardIcon,
   MonitorIcon,
+  PencilIcon,
   PlusIcon,
   SearchIcon,
   SparklesIcon,
   TablePropertiesIcon,
+  Trash2Icon,
   UsersIcon,
 } from "lucide-react"
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -42,6 +55,7 @@ import {
   Dialog,
   DialogContent,
   DialogDescription,
+  DialogFooter,
   DialogHeader,
   DialogTitle,
   DialogTrigger,
@@ -63,6 +77,14 @@ import {
 } from "@/components/ui/field"
 import { Input } from "@/components/ui/input"
 import { Progress } from "@/components/ui/progress"
+import {
+  Select,
+  SelectContent,
+  SelectGroup,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select"
 import { Skeleton } from "@/components/ui/skeleton"
 import {
   Table,
@@ -961,14 +983,18 @@ function StudentsView({ onCollect }: { onCollect: (s: Student) => void }) {
                         "Verified"
                       )}
                     </TableCell>
-                    <TableCell className="text-right">
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={() => onCollect(student)}
-                      >
-                        Open collection
-                      </Button>
+                    <TableCell>
+                      <div className="flex justify-end gap-2">
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => onCollect(student)}
+                        >
+                          Open collection
+                        </Button>
+                        <EditStudentDialog student={student} />
+                        <DeleteStudentDialog student={student} />
+                      </div>
                     </TableCell>
                   </TableRow>
                 ))}
@@ -978,6 +1004,295 @@ function StudentsView({ onCollect }: { onCollect: (s: Student) => void }) {
         </Card>
       )}
     </div>
+  )
+}
+
+function EditStudentDialog({ student }: { student: Student }) {
+  const [open, setOpen] = useState(false)
+  const [editPhone, setEditPhone] = useState(student.phone)
+  const client = useQueryClient()
+  const mutation = useMutation({
+    mutationFn: (body: unknown) =>
+      api<Student>(`/api/students/${student._id}/admin`, {
+        method: "PATCH",
+        body: JSON.stringify(body),
+      }),
+    onSuccess: async () => {
+      await invalidateAll(client)
+      toast.success(`${student.name} updated`)
+      setOpen(false)
+    },
+    onError: (error) => toast.error(error.message),
+  })
+  const form = useForm({
+    defaultValues: {
+      name: student.name,
+      gender: student.gender,
+      currentGroup: student.currentGroup,
+      visited: student.visited,
+      desktopRequired: student.desktopRequired,
+      notes: student.notes,
+      expectedUpdatedAt: student.updatedAt,
+    },
+    onSubmit: ({ value }) => mutation.mutate({ ...value, phone: editPhone }),
+  })
+
+  return (
+    <Dialog
+      open={open}
+      onOpenChange={(nextOpen) => {
+        if (nextOpen) setEditPhone(student.phone)
+        setOpen(nextOpen)
+      }}
+    >
+      <DialogTrigger
+        render={
+          <Button size="sm" variant="outline">
+            <PencilIcon data-icon="inline-start" />
+            Edit
+          </Button>
+        }
+      />
+      <DialogContent className="sm:max-w-lg">
+        <DialogHeader>
+          <DialogTitle>Edit student</DialogTitle>
+          <DialogDescription>
+            Update identity and collection status for {student.name}.
+          </DialogDescription>
+        </DialogHeader>
+        <form
+          onSubmit={(event) => {
+            event.preventDefault()
+            form.handleSubmit()
+          }}
+        >
+          <FieldGroup>
+            <div className="grid gap-4 sm:grid-cols-2">
+              <form.Field name="name">
+                {(field) => (
+                  <Field>
+                    <FieldLabel htmlFor={`edit-name-${student._id}`}>
+                      Name
+                    </FieldLabel>
+                    <Input
+                      id={`edit-name-${student._id}`}
+                      value={field.state.value}
+                      onChange={(event) =>
+                        field.handleChange(event.target.value)
+                      }
+                    />
+                  </Field>
+                )}
+              </form.Field>
+              <Field>
+                <FieldLabel htmlFor={`edit-phone-${student._id}`}>
+                  Phone
+                </FieldLabel>
+                <Input
+                  id={`edit-phone-${student._id}`}
+                  type="tel"
+                  inputMode="tel"
+                  autoComplete="tel"
+                  value={editPhone}
+                  onChange={(event) => setEditPhone(event.target.value)}
+                />
+              </Field>
+            </div>
+            <form.Field name="gender">
+              {(field) => (
+                <FieldSet>
+                  <FieldLegend>Gender</FieldLegend>
+                  <ToggleGroup
+                    value={[field.state.value]}
+                    onValueChange={(value) =>
+                      field.handleChange((value[0] ?? "BOY") as Gender)
+                    }
+                    variant="outline"
+                  >
+                    <ToggleGroupItem value="BOY">Male</ToggleGroupItem>
+                    <ToggleGroupItem value="GIRL">Female</ToggleGroupItem>
+                  </ToggleGroup>
+                </FieldSet>
+              )}
+            </form.Field>
+            <div className="grid gap-4 sm:grid-cols-2">
+              <form.Field name="currentGroup">
+                {(field) => (
+                  <Field>
+                    <FieldLabel>Current group</FieldLabel>
+                    <Select
+                      value={field.state.value ?? "UNASSIGNED"}
+                      onValueChange={(value) =>
+                        field.handleChange(
+                          value === "UNASSIGNED"
+                            ? null
+                            : (value as CurrentGroup)
+                        )
+                      }
+                    >
+                      <SelectTrigger className="w-full">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectGroup>
+                          <SelectItem value="UNASSIGNED">Unassigned</SelectItem>
+                          <SelectItem value="NOT_SURE">Not sure</SelectItem>
+                          {GROUP_IDS.map((groupId) => (
+                            <SelectItem key={groupId} value={groupId}>
+                              {groupId}
+                            </SelectItem>
+                          ))}
+                        </SelectGroup>
+                      </SelectContent>
+                    </Select>
+                  </Field>
+                )}
+              </form.Field>
+              <form.Field name="visited">
+                {(field) => (
+                  <FieldSet>
+                    <FieldLegend>Visit status</FieldLegend>
+                    <ToggleGroup
+                      value={[field.state.value ? "VISITED" : "NOT_VISITED"]}
+                      onValueChange={(value) =>
+                        field.handleChange(value[0] === "VISITED")
+                      }
+                      variant="outline"
+                    >
+                      <ToggleGroupItem value="VISITED">Visited</ToggleGroupItem>
+                      <ToggleGroupItem value="NOT_VISITED">
+                        Not visited
+                      </ToggleGroupItem>
+                    </ToggleGroup>
+                  </FieldSet>
+                )}
+              </form.Field>
+            </div>
+            <form.Field name="desktopRequired">
+              {(field) => (
+                <FieldSet>
+                  <FieldLegend>Desktop requirement</FieldLegend>
+                  <ToggleGroup
+                    value={[
+                      field.state.value === null
+                        ? "UNDECIDED"
+                        : field.state.value
+                          ? "YES"
+                          : "NO",
+                    ]}
+                    onValueChange={(value) =>
+                      field.handleChange(
+                        value[0] === "YES"
+                          ? true
+                          : value[0] === "NO"
+                            ? false
+                            : null
+                      )
+                    }
+                    variant="outline"
+                  >
+                    <ToggleGroupItem value="YES">Yes</ToggleGroupItem>
+                    <ToggleGroupItem value="NO">No</ToggleGroupItem>
+                    <ToggleGroupItem value="UNDECIDED">
+                      Not decided
+                    </ToggleGroupItem>
+                  </ToggleGroup>
+                </FieldSet>
+              )}
+            </form.Field>
+            <form.Field name="notes">
+              {(field) => (
+                <Field>
+                  <FieldLabel htmlFor={`edit-notes-${student._id}`}>
+                    Notes
+                  </FieldLabel>
+                  <Textarea
+                    id={`edit-notes-${student._id}`}
+                    value={field.state.value}
+                    onChange={(event) => field.handleChange(event.target.value)}
+                  />
+                </Field>
+              )}
+            </form.Field>
+            <DialogFooter>
+              <Button type="submit" disabled={mutation.isPending}>
+                {mutation.isPending ? "Saving…" : "Save changes"}
+              </Button>
+            </DialogFooter>
+          </FieldGroup>
+        </form>
+      </DialogContent>
+    </Dialog>
+  )
+}
+
+function DeleteStudentDialog({ student }: { student: Student }) {
+  const [open, setOpen] = useState(false)
+  const [password, setPassword] = useState("")
+  const client = useQueryClient()
+  const mutation = useMutation({
+    mutationFn: () =>
+      api<{ id: string }>(`/api/students/${student._id}/admin`, {
+        method: "DELETE",
+        body: JSON.stringify({ password }),
+      }),
+    onSuccess: async () => {
+      await invalidateAll(client)
+      toast.success(`${student.name} deleted`)
+      setPassword("")
+      setOpen(false)
+    },
+    onError: (error) => toast.error(error.message),
+  })
+
+  return (
+    <AlertDialog open={open} onOpenChange={setOpen}>
+      <AlertDialogTrigger
+        render={
+          <Button size="sm" variant="destructive">
+            <Trash2Icon data-icon="inline-start" />
+            Delete
+          </Button>
+        }
+      />
+      <AlertDialogContent>
+        <AlertDialogHeader>
+          <AlertDialogTitle>Delete {student.name}?</AlertDialogTitle>
+          <AlertDialogDescription>
+            This removes the verified record and its relationships. Its raw name
+            and phone will become available in Reconcile again.
+          </AlertDialogDescription>
+        </AlertDialogHeader>
+        <Field>
+          <FieldLabel htmlFor={`delete-password-${student._id}`}>
+            Delete password
+          </FieldLabel>
+          <Input
+            id={`delete-password-${student._id}`}
+            type="password"
+            autoComplete="current-password"
+            value={password}
+            onChange={(event) => setPassword(event.target.value)}
+            onKeyDown={(event) => {
+              if (event.key === "Enter" && password && !mutation.isPending)
+                mutation.mutate()
+            }}
+          />
+        </Field>
+        <AlertDialogFooter>
+          <AlertDialogCancel disabled={mutation.isPending}>
+            Cancel
+          </AlertDialogCancel>
+          <AlertDialogAction
+            variant="destructive"
+            disabled={!password || mutation.isPending}
+            onClick={() => mutation.mutate()}
+          >
+            {mutation.isPending ? "Deleting…" : "Delete record"}
+          </AlertDialogAction>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
   )
 }
 
