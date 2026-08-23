@@ -154,7 +154,6 @@ export type TrackerSection =
   "collect" | "overview" | "students" | "groups" | "reconcile"
 
 const navigation = [
-  { section: "collect", label: "Collect", icon: SearchIcon },
   { section: "overview", label: "Overview", icon: LayoutDashboardIcon },
   { section: "students", label: "Students", icon: UsersIcon },
   { section: "groups", label: "Groups", icon: TablePropertiesIcon },
@@ -197,7 +196,7 @@ export function TrackerApp({
           <div className="min-w-0 flex-1">
             <p className="truncate font-semibold">PG Group Tracker</p>
             <p className="text-xs text-muted-foreground">
-              Sunbeam PGCP · field collection
+              Sunbeam PGCP · group assignment
             </p>
           </div>
           <ThemeToggle />
@@ -206,7 +205,7 @@ export function TrackerApp({
       <main className="mx-auto max-w-7xl px-4 py-5 md:py-8">
         <nav
           aria-label="Tracker sections"
-          className="mb-6 grid h-auto w-full grid-cols-5 rounded-lg bg-muted p-[3px] md:w-fit"
+          className="mb-6 grid h-auto w-full grid-cols-4 rounded-lg bg-muted p-[3px] md:w-fit"
         >
           {navigation.map((item) => {
             const Icon = item.icon
@@ -408,14 +407,24 @@ function GroupStudentsTable({
 }
 
 function DashboardView() {
+  const [selectedGroupId, setSelectedGroupId] = useState<GroupId | null>(null)
   const query = useQuery({
     queryKey: ["dashboard"],
     queryFn: () => api<Dashboard>("/api/dashboard"),
   })
-  if (query.isLoading) return <LoadingCards />
+  const studentsQuery = useQuery({
+    queryKey: ["students", "overview-groups"],
+    queryFn: () => api<Student[]>("/api/students"),
+  })
+  if (query.isLoading || studentsQuery.isLoading) return <LoadingCards />
   if (query.error) return <ErrorAlert error={query.error} />
+  if (studentsQuery.error) return <ErrorAlert error={studentsQuery.error} />
   const { stats, occupancy } = query.data!,
-    progress = stats.total ? (stats.assigned / stats.total) * 100 : 0
+    selectedMembers = selectedGroupId
+      ? (studentsQuery.data ?? []).filter(
+          (student) => student.currentGroup === selectedGroupId
+        )
+      : []
   const cards = [
     ["Total students", stats.total],
     ["Assigned", stats.assigned],
@@ -427,21 +436,6 @@ function DashboardView() {
   ]
   return (
     <div className="flex flex-col gap-6">
-      <Card>
-        <CardHeader>
-          <CardDescription>Collection progress</CardDescription>
-          <CardTitle>
-            {stats.assigned}{" "}
-            <span className="text-muted-foreground">/ {stats.total}</span>
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="flex flex-col gap-2">
-          <Progress value={progress} />
-          <p className="text-sm text-muted-foreground">
-            {progress.toFixed(1)}% of verified students assigned
-          </p>
-        </CardContent>
-      </Card>
       <div className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-5">
         {cards.map(([label, value]) => (
           <Card key={label}>
@@ -454,8 +448,29 @@ function DashboardView() {
       </div>
       <section>
         <h2 className="mb-3 text-lg font-semibold">Live group occupancy</h2>
-        <OccupancyGrid occupancy={occupancy} />
+        <OccupancyGrid
+          occupancy={occupancy}
+          selectedGroupId={selectedGroupId}
+          onSelect={setSelectedGroupId}
+        />
       </section>
+      {selectedGroupId && (
+        <Card>
+          <CardHeader>
+            <CardTitle>{selectedGroupId} students</CardTitle>
+            <CardDescription>
+              {selectedMembers.length} students currently assigned to this
+              group.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <GroupStudentsTable
+              groupId={selectedGroupId}
+              members={selectedMembers}
+            />
+          </CardContent>
+        </Card>
+      )}
     </div>
   )
 }
@@ -468,32 +483,11 @@ function CollectionMode({
   onSelect: (s: Student | null) => void
 }) {
   const dashboard = useQuery({
-      queryKey: ["dashboard"],
-      queryFn: () => api<Dashboard>("/api/dashboard"),
-    }),
-    progress = dashboard.data?.stats.total
-      ? (dashboard.data.stats.assigned / dashboard.data.stats.total) * 100
-      : 0
+    queryKey: ["dashboard"],
+    queryFn: () => api<Dashboard>("/api/dashboard"),
+  })
   return (
     <div className="mx-auto flex max-w-3xl flex-col gap-5">
-      <Card>
-        <CardHeader className="pb-3">
-          <div className="flex items-end justify-between">
-            <div>
-              <CardDescription>Collection progress</CardDescription>
-              <CardTitle>
-                {dashboard.data
-                  ? `${dashboard.data.stats.assigned} / ${dashboard.data.stats.total}`
-                  : "Loading…"}
-              </CardTitle>
-            </div>
-            <Badge variant="secondary">{progress.toFixed(0)}%</Badge>
-          </div>
-        </CardHeader>
-        <CardContent>
-          <Progress value={progress} />
-        </CardContent>
-      </Card>
       {!selected ? (
         <StudentSearch onSelect={onSelect} />
       ) : (
@@ -831,41 +825,64 @@ function CollectionForm({
   )
 }
 
-function OccupancyGrid({ occupancy }: { occupancy: Occupancy[] }) {
+function OccupancyGrid({
+  occupancy,
+  selectedGroupId,
+  onSelect,
+}: {
+  occupancy: Occupancy[]
+  selectedGroupId?: GroupId | null
+  onSelect?: (groupId: GroupId) => void
+}) {
   return (
     <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
       {occupancy.map((group) => (
-        <Card key={group.id}>
-          <CardHeader>
-            <div className="flex items-center justify-between">
-              <CardTitle>{group.id}</CardTitle>
-              <Badge
-                variant={group.remaining.total <= 0 ? "destructive" : "outline"}
-              >
-                {group.total}/{group.capacity.total}
-              </Badge>
-            </div>
-            <CardDescription>
-              {group.boys}/{group.capacity.boys} Males · {group.girls}/
-              {group.capacity.girls} Females
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="flex flex-col gap-3">
-            <Progress
-              value={Math.max(0, (group.total / group.capacity.total) * 100)}
-            />
-            <p className="text-sm">
-              Remaining: {group.remaining.boys} males · {group.remaining.girls}{" "}
-              females · {group.remaining.total} total
-            </p>
-            {group.id === "D6" && (
-              <Badge variant="secondary">
-                <MonitorIcon />
-                Desktop group
-              </Badge>
+        <button
+          key={group.id}
+          type="button"
+          className="text-left"
+          aria-pressed={selectedGroupId === group.id}
+          onClick={() => onSelect?.(group.id as GroupId)}
+        >
+          <Card
+            className={cn(
+              "h-full transition-colors hover:bg-muted/50",
+              selectedGroupId === group.id && "border-primary bg-muted/50"
             )}
-          </CardContent>
-        </Card>
+          >
+            <CardHeader>
+              <div className="flex items-center justify-between">
+                <CardTitle>{group.id}</CardTitle>
+                <Badge
+                  variant={
+                    group.remaining.total <= 0 ? "destructive" : "outline"
+                  }
+                >
+                  {group.total}/{group.capacity.total}
+                </Badge>
+              </div>
+              <CardDescription>
+                {group.boys}/{group.capacity.boys} Males · {group.girls}/
+                {group.capacity.girls} Females
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="flex flex-col gap-3">
+              <Progress
+                value={Math.max(0, (group.total / group.capacity.total) * 100)}
+              />
+              <p className="text-sm">
+                Remaining: {group.remaining.boys} males ·{" "}
+                {group.remaining.girls} females · {group.remaining.total} total
+              </p>
+              {group.id === "D6" && (
+                <Badge variant="secondary">
+                  <MonitorIcon />
+                  Desktop group
+                </Badge>
+              )}
+            </CardContent>
+          </Card>
+        </button>
       ))}
     </div>
   )
@@ -959,7 +976,7 @@ function StudentsView({ onCollect }: { onCollect: (s: Student) => void }) {
                           variant="outline"
                           onClick={() => onCollect(student)}
                         >
-                          Open collection
+                          Manage details
                         </Button>
                         <EditStudentDialog student={student} />
                         <DeleteStudentDialog student={student} />
