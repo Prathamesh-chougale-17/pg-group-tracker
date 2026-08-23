@@ -15,6 +15,7 @@ import {
   PlusIcon,
   SearchIcon,
   SparklesIcon,
+  TablePropertiesIcon,
   UsersIcon,
 } from "lucide-react"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
@@ -63,10 +64,18 @@ import {
 import { Input } from "@/components/ui/input"
 import { Progress } from "@/components/ui/progress"
 import { Skeleton } from "@/components/ui/skeleton"
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table"
 import { Textarea } from "@/components/ui/textarea"
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group"
 import { ThemeToggle } from "@/components/theme-toggle"
-import type { CurrentGroup, Gender } from "@/lib/domain/types"
+import { GROUP_IDS, type CurrentGroup, type Gender } from "@/lib/domain/types"
 import { cn } from "@/lib/utils"
 
 type Student = {
@@ -116,12 +125,14 @@ const invalidateAll = (client: ReturnType<typeof useQueryClient>) =>
     client.invalidateQueries({ queryKey: ["reconciliation"] }),
   ])
 
-export type TrackerSection = "collect" | "overview" | "students" | "reconcile"
+export type TrackerSection =
+  "collect" | "overview" | "students" | "groups" | "reconcile"
 
 const navigation = [
   { section: "collect", label: "Collect", icon: SearchIcon },
   { section: "overview", label: "Overview", icon: LayoutDashboardIcon },
   { section: "students", label: "Students", icon: UsersIcon },
+  { section: "groups", label: "Groups", icon: TablePropertiesIcon },
   { section: "reconcile", label: "Reconcile", icon: DatabaseIcon },
 ] satisfies {
   section: TrackerSection
@@ -168,7 +179,7 @@ export function TrackerApp({
       <main className="mx-auto max-w-7xl px-4 py-5 md:py-8">
         <nav
           aria-label="Tracker sections"
-          className="mb-6 grid h-auto w-full grid-cols-4 rounded-lg bg-muted p-[3px] md:w-fit"
+          className="mb-6 grid h-auto w-full grid-cols-5 rounded-lg bg-muted p-[3px] md:w-fit"
         >
           {navigation.map((item) => {
             const Icon = item.icon
@@ -211,8 +222,109 @@ export function TrackerApp({
             }}
           />
         )}
+        {section === "groups" && <GroupsView />}
         {section === "reconcile" && <ReconciliationView />}
       </main>
+    </div>
+  )
+}
+
+function GroupsView() {
+  const query = useQuery({
+    queryKey: ["students", "groups"],
+    queryFn: () => api<Student[]>("/api/students"),
+  })
+
+  if (query.isLoading) return <LoadingCards />
+  if (query.error) return <ErrorAlert error={query.error} />
+
+  const students = query.data ?? []
+  return (
+    <div className="flex flex-col gap-6">
+      <div>
+        <h1 className="text-2xl font-semibold tracking-tight">Groups</h1>
+        <p className="text-sm text-muted-foreground">
+          Students currently assigned to D1 through D6.
+        </p>
+      </div>
+      {GROUP_IDS.map((groupId) => {
+        const members = students.filter(
+            (student) => student.currentGroup === groupId
+          ),
+          boys = members.filter((student) => student.gender === "BOY").length,
+          girls = members.length - boys
+
+        return (
+          <Card key={groupId}>
+            <CardHeader>
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <div>
+                  <CardTitle>{groupId}</CardTitle>
+                  <CardDescription>
+                    {members.length} students · {boys} boys · {girls} girls
+                  </CardDescription>
+                </div>
+                <Badge variant="secondary">{members.length} total</Badge>
+              </div>
+            </CardHeader>
+            <CardContent>
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Student</TableHead>
+                    <TableHead>Phone</TableHead>
+                    <TableHead>Gender</TableHead>
+                    <TableHead>Visit status</TableHead>
+                    <TableHead>Desktop</TableHead>
+                    <TableHead>Project group</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {members.length ? (
+                    members.map((student) => (
+                      <TableRow key={student._id}>
+                        <TableCell className="font-medium">
+                          <Link href={`/collect/${student._id}`}>
+                            {student.name}
+                          </Link>
+                        </TableCell>
+                        <TableCell>{student.phone}</TableCell>
+                        <TableCell>
+                          {student.gender === "BOY" ? "Boy" : "Girl"}
+                        </TableCell>
+                        <TableCell>
+                          <Badge
+                            variant={student.visited ? "secondary" : "outline"}
+                          >
+                            {student.visited ? "Visited" : "Not visited"}
+                          </Badge>
+                        </TableCell>
+                        <TableCell>
+                          {student.desktopRequired === null
+                            ? "Not decided"
+                            : student.desktopRequired
+                              ? "Yes"
+                              : "No"}
+                        </TableCell>
+                        <TableCell>{student.projectGroup ?? "—"}</TableCell>
+                      </TableRow>
+                    ))
+                  ) : (
+                    <TableRow>
+                      <TableCell
+                        colSpan={6}
+                        className="h-20 text-center text-muted-foreground"
+                      >
+                        No students assigned to {groupId}.
+                      </TableCell>
+                    </TableRow>
+                  )}
+                </TableBody>
+              </Table>
+            </CardContent>
+          </Card>
+        )
+      })}
     </div>
   )
 }

@@ -2,7 +2,13 @@ import { notFound } from "next/navigation"
 
 import { TrackerApp, type TrackerSection } from "@/components/tracker-app"
 
-const sections = ["collect", "overview", "students", "reconcile"] as const
+const sections = [
+  "collect",
+  "overview",
+  "students",
+  "groups",
+  "reconcile",
+] as const
 
 function isTrackerSection(value: string): value is TrackerSection {
   return sections.some((section) => section === value)
