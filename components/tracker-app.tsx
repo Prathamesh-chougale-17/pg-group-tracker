@@ -2,6 +2,8 @@
 import { useState } from "react"
 import { useForm } from "@tanstack/react-form"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
+import Link from "next/link"
+import { useRouter } from "next/navigation"
 import { toast as toastManager } from "@/components/ui/toast"
 import {
   AlertTriangleIcon,
@@ -61,11 +63,11 @@ import {
 import { Input } from "@/components/ui/input"
 import { Progress } from "@/components/ui/progress"
 import { Skeleton } from "@/components/ui/skeleton"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Textarea } from "@/components/ui/textarea"
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group"
 import { ThemeToggle } from "@/components/theme-toggle"
 import type { CurrentGroup, Gender } from "@/lib/domain/types"
+import { cn } from "@/lib/utils"
 
 type Student = {
   _id: string
@@ -114,9 +116,39 @@ const invalidateAll = (client: ReturnType<typeof useQueryClient>) =>
     client.invalidateQueries({ queryKey: ["reconciliation"] }),
   ])
 
-export function TrackerApp() {
-  const [tab, setTab] = useState("collect"),
-    [selected, setSelected] = useState<Student | null>(null)
+export type TrackerSection = "collect" | "overview" | "students" | "reconcile"
+
+const navigation = [
+  { section: "collect", label: "Collect", icon: SearchIcon },
+  { section: "overview", label: "Overview", icon: LayoutDashboardIcon },
+  { section: "students", label: "Students", icon: UsersIcon },
+  { section: "reconcile", label: "Reconcile", icon: DatabaseIcon },
+] satisfies {
+  section: TrackerSection
+  label: string
+  icon: typeof SearchIcon
+}[]
+
+export function TrackerApp({
+  section,
+  initialStudentId,
+}: {
+  section: TrackerSection
+  initialStudentId?: string
+}) {
+  const router = useRouter()
+  const [localSelected, setLocalSelected] = useState<Student | null>(null)
+  const selectedStudentQuery = useQuery({
+    queryKey: ["students", "selected", initialStudentId],
+    queryFn: () => api<Student[]>("/api/students"),
+    enabled: Boolean(initialStudentId) && !localSelected,
+  })
+  const selected =
+    localSelected ??
+    selectedStudentQuery.data?.find(
+      (student) => student._id === initialStudentId
+    ) ??
+    null
   return (
     <div className="min-h-svh bg-muted/20">
       <header className="sticky top-0 border-b bg-background/95 backdrop-blur">
@@ -134,43 +166,42 @@ export function TrackerApp() {
         </div>
       </header>
       <main className="mx-auto max-w-7xl px-4 py-5 md:py-8">
-        <Tabs value={tab} onValueChange={setTab}>
-          <TabsList className="mb-6 grid h-auto w-full grid-cols-4 md:w-fit">
-            <TabsTrigger value="collect">
-              <SearchIcon />
-              Collect
-            </TabsTrigger>
-            <TabsTrigger value="dashboard">
-              <LayoutDashboardIcon />
-              Overview
-            </TabsTrigger>
-            <TabsTrigger value="students">
-              <UsersIcon />
-              Students
-            </TabsTrigger>
-            <TabsTrigger value="reconcile">
-              <DatabaseIcon />
-              Reconcile
-            </TabsTrigger>
-          </TabsList>
-          <TabsContent value="collect">
-            <CollectionMode selected={selected} onSelect={setSelected} />
-          </TabsContent>
-          <TabsContent value="dashboard">
-            <DashboardView />
-          </TabsContent>
-          <TabsContent value="students">
-            <StudentsView
-              onCollect={(student) => {
-                setSelected(student)
-                setTab("collect")
-              }}
-            />
-          </TabsContent>
-          <TabsContent value="reconcile">
-            <ReconciliationView />
-          </TabsContent>
-        </Tabs>
+        <nav
+          aria-label="Tracker sections"
+          className="mb-6 grid h-auto w-full grid-cols-4 rounded-lg bg-muted p-[3px] md:w-fit"
+        >
+          {navigation.map((item) => {
+            const Icon = item.icon
+            return (
+              <Link
+                key={item.section}
+                href={`/${item.section}`}
+                aria-current={section === item.section ? "page" : undefined}
+                className={cn(
+                  "inline-flex min-h-8 items-center justify-center gap-1.5 rounded-md border border-transparent px-1.5 py-1 text-sm font-medium whitespace-nowrap text-foreground/60 transition-colors hover:text-foreground focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 focus-visible:outline-1 focus-visible:outline-ring",
+                  section === item.section &&
+                    "bg-background text-foreground shadow-sm dark:border-input dark:bg-input/30"
+                )}
+              >
+                <Icon className="size-4 shrink-0" />
+                {item.label}
+              </Link>
+            )
+          })}
+        </nav>
+        {section === "collect" && (
+          <CollectionMode selected={selected} onSelect={setLocalSelected} />
+        )}
+        {section === "overview" && <DashboardView />}
+        {section === "students" && (
+          <StudentsView
+            onCollect={(student) => {
+              setLocalSelected(student)
+              router.push(`/collect?student=${encodeURIComponent(student._id)}`)
+            }}
+          />
+        )}
+        {section === "reconcile" && <ReconciliationView />}
       </main>
     </div>
   )

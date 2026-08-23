@@ -1,4 +1,5 @@
-import { TrackerApp } from "@/components/tracker-app"
+import { redirect } from "next/navigation"
+
 export default function Page() {
-  return <TrackerApp />
+  redirect("/collect")
 }
