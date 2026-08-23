@@ -1,5 +1,5 @@
 "use client"
-import { useState } from "react"
+import { useDeferredValue, useState } from "react"
 import { useForm } from "@tanstack/react-form"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import Link from "next/link"
@@ -76,6 +76,11 @@ import {
   FieldSet,
 } from "@/components/ui/field"
 import { Input } from "@/components/ui/input"
+import {
+  InputGroup,
+  InputGroupAddon,
+  InputGroupInput,
+} from "@/components/ui/input-group"
 import { Progress } from "@/components/ui/progress"
 import {
   Select,
@@ -890,25 +895,47 @@ function OccupancyGrid({
 
 function StudentsView({ onCollect }: { onCollect: (s: Student) => void }) {
   const [filter, setFilter] = useState("all")
+  const [search, setSearch] = useState("")
+  const deferredSearch = useDeferredValue(search.trim())
   const query = useQuery({
-    queryKey: ["students", filter],
-    queryFn: () =>
-      api<Student[]>(
-        `/api/students${filter === "unassigned" ? "?group=UNASSIGNED" : filter === "exceptions" ? "?exception=true" : ""}`
-      ),
+    queryKey: ["students", filter, deferredSearch],
+    queryFn: () => {
+      const params = new URLSearchParams()
+      if (deferredSearch) params.set("q", deferredSearch)
+      if (filter === "unassigned") params.set("group", "UNASSIGNED")
+      if (filter === "exceptions") params.set("exception", "true")
+      const queryString = params.toString()
+      return api<Student[]>(
+        `/api/students${queryString ? `?${queryString}` : ""}`
+      )
+    },
   })
   return (
     <div className="flex flex-col gap-4">
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <ToggleGroup
-          value={[filter]}
-          onValueChange={(v) => setFilter(v[0] ?? "all")}
-          variant="outline"
-        >
-          <ToggleGroupItem value="all">All</ToggleGroupItem>
-          <ToggleGroupItem value="unassigned">Unassigned</ToggleGroupItem>
-          <ToggleGroupItem value="exceptions">Exceptions</ToggleGroupItem>
-        </ToggleGroup>
+        <div className="flex flex-1 flex-wrap items-center gap-3">
+          <InputGroup className="min-w-60 flex-1 sm:max-w-sm">
+            <InputGroupAddon>
+              <SearchIcon />
+            </InputGroupAddon>
+            <InputGroupInput
+              type="search"
+              aria-label="Search students by name or phone"
+              placeholder="Search name or phone…"
+              value={search}
+              onChange={(event) => setSearch(event.target.value)}
+            />
+          </InputGroup>
+          <ToggleGroup
+            value={[filter]}
+            onValueChange={(v) => setFilter(v[0] ?? "all")}
+            variant="outline"
+          >
+            <ToggleGroupItem value="all">All</ToggleGroupItem>
+            <ToggleGroupItem value="unassigned">Unassigned</ToggleGroupItem>
+            <ToggleGroupItem value="exceptions">Exceptions</ToggleGroupItem>
+          </ToggleGroup>
+        </div>
         <ExceptionDialog />
       </div>
       {query.isLoading ? (
