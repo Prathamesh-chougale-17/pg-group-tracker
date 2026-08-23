@@ -261,7 +261,7 @@ function GroupsView() {
                 <div>
                   <CardTitle>{groupId}</CardTitle>
                   <CardDescription>
-                    {members.length} students · {boys} boys · {girls} girls
+                    {members.length} students · {boys} males · {girls} females
                   </CardDescription>
                 </div>
                 <Badge variant="secondary">{members.length} total</Badge>
@@ -290,7 +290,7 @@ function GroupsView() {
                         </TableCell>
                         <TableCell>{student.phone}</TableCell>
                         <TableCell>
-                          {student.gender === "BOY" ? "Boy" : "Girl"}
+                          {student.gender === "BOY" ? "Male" : "Female"}
                         </TableCell>
                         <TableCell>
                           <Badge
@@ -479,7 +479,7 @@ function StudentSearch({ onSelect }: { onSelect: (s: Student) => void }) {
                       <div className="min-w-0 flex-1">
                         <p className="truncate font-medium">{student.name}</p>
                         <p className="text-xs text-muted-foreground">
-                          {student.gender === "BOY" ? "Boy" : "Girl"} ·{" "}
+                          {student.gender === "BOY" ? "Male" : "Female"} ·{" "}
                           {student.phone}
                         </p>
                       </div>
@@ -566,7 +566,7 @@ function CollectionForm({
             <div>
               <CardTitle>{student.name}</CardTitle>
               <CardDescription>
-                {student.gender === "BOY" ? "Boy" : "Girl"} · {student.phone}
+                {student.gender === "BOY" ? "Male" : "Female"} · {student.phone}
               </CardDescription>
             </div>
             <Badge variant={student.visited ? "secondary" : "outline"}>
@@ -619,12 +619,12 @@ function CollectionForm({
                                   </span>
                                 </span>
                                 <span className="mt-1 block text-sm text-muted-foreground">
-                                  {group.boys}/{group.capacity.boys} Boys ·{" "}
-                                  {group.girls}/{group.capacity.girls} Girls
+                                  {group.boys}/{group.capacity.boys} Males ·{" "}
+                                  {group.girls}/{group.capacity.girls} Females
                                 </span>
                                 <span className="mt-2 block text-xs">
-                                  {group.remaining.boys} Boys ·{" "}
-                                  {group.remaining.girls} Girls remaining
+                                  {group.remaining.boys} Males ·{" "}
+                                  {group.remaining.girls} Females remaining
                                 </span>
                                 {group.id === "D6" && (
                                   <Badge className="mt-2" variant="secondary">
@@ -782,8 +782,8 @@ function OccupancyGrid({ occupancy }: { occupancy: Occupancy[] }) {
               </Badge>
             </div>
             <CardDescription>
-              {group.boys}/{group.capacity.boys} Boys · {group.girls}/
-              {group.capacity.girls} Girls
+              {group.boys}/{group.capacity.boys} Males · {group.girls}/
+              {group.capacity.girls} Females
             </CardDescription>
           </CardHeader>
           <CardContent className="flex flex-col gap-3">
@@ -791,8 +791,8 @@ function OccupancyGrid({ occupancy }: { occupancy: Occupancy[] }) {
               value={Math.max(0, (group.total / group.capacity.total) * 100)}
             />
             <p className="text-sm">
-              Remaining: {group.remaining.boys} boys · {group.remaining.girls}{" "}
-              girls · {group.remaining.total} total
+              Remaining: {group.remaining.boys} males · {group.remaining.girls}{" "}
+              females · {group.remaining.total} total
             </p>
             {group.id === "D6" && (
               <Badge variant="secondary">
@@ -876,7 +876,7 @@ function StudentsView({ onCollect }: { onCollect: (s: Student) => void }) {
                     </TableCell>
                     <TableCell>{student.phone}</TableCell>
                     <TableCell>
-                      {student.gender === "BOY" ? "Boy" : "Girl"}
+                      {student.gender === "BOY" ? "Male" : "Female"}
                     </TableCell>
                     <TableCell>
                       <Badge variant="outline">
@@ -1017,8 +1017,8 @@ function ExceptionDialog() {
                     }
                     variant="outline"
                   >
-                    <ToggleGroupItem value="BOY">Boy</ToggleGroupItem>
-                    <ToggleGroupItem value="GIRL">Girl</ToggleGroupItem>
+                    <ToggleGroupItem value="BOY">Male</ToggleGroupItem>
+                    <ToggleGroupItem value="GIRL">Female</ToggleGroupItem>
                   </ToggleGroup>
                 </FieldSet>
               )}
@@ -1193,8 +1193,8 @@ function MatchForm({ data }: { data: Recon }) {
                 }
                 variant="outline"
               >
-                <ToggleGroupItem value="BOY">Boy</ToggleGroupItem>
-                <ToggleGroupItem value="GIRL">Girl</ToggleGroupItem>
+                <ToggleGroupItem value="BOY">Male</ToggleGroupItem>
+                <ToggleGroupItem value="GIRL">Female</ToggleGroupItem>
               </ToggleGroup>
             </FieldSet>
           )}
@@ -1205,8 +1205,8 @@ function MatchForm({ data }: { data: Recon }) {
             <AlertTitle>Confirmation preview</AlertTitle>
             <AlertDescription>
               {name.name} · {phone.phoneNumber} ·{" "}
-              {form.state.values.gender === "BOY" ? "Boy" : "Girl"}. References
-              to both raw IDs are retained.
+              {form.state.values.gender === "BOY" ? "Male" : "Female"}.
+              References to both raw IDs are retained.
             </AlertDescription>
           </Alert>
         )}
