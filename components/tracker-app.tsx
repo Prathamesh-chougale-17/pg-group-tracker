@@ -852,39 +852,70 @@ function StudentsView({ onCollect }: { onCollect: (s: Student) => void }) {
           </EmptyHeader>
         </Empty>
       ) : (
-        <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
-          {query.data.map((student) => (
-            <Card key={student._id}>
-              <CardHeader>
-                <div className="flex items-start justify-between gap-2">
-                  <div>
-                    <CardTitle>{student.name}</CardTitle>
-                    <CardDescription>
-                      {student.gender === "BOY" ? "Boy" : "Girl"} ·{" "}
-                      {student.phone}
-                    </CardDescription>
-                  </div>
-                  {student.isException && (
-                    <Badge variant="secondary">Exception</Badge>
-                  )}
-                </div>
-              </CardHeader>
-              <CardContent className="flex gap-2">
-                <Badge variant={student.visited ? "secondary" : "outline"}>
-                  {student.visited ? "Visited" : "Not visited"}
-                </Badge>
-                <Badge variant="outline">
-                  {student.currentGroup ?? "Unassigned"}
-                </Badge>
-              </CardContent>
-              <CardFooter>
-                <Button variant="outline" onClick={() => onCollect(student)}>
-                  Open collection
-                </Button>
-              </CardFooter>
-            </Card>
-          ))}
-        </div>
+        <Card>
+          <CardHeader>
+            <CardTitle>Students</CardTitle>
+            <CardDescription>
+              {query.data.length} students in this view
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Student</TableHead>
+                  <TableHead>Phone</TableHead>
+                  <TableHead>Gender</TableHead>
+                  <TableHead>Group</TableHead>
+                  <TableHead>Visit status</TableHead>
+                  <TableHead>Record type</TableHead>
+                  <TableHead className="text-right">Action</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {query.data.map((student) => (
+                  <TableRow key={student._id}>
+                    <TableCell className="font-medium">
+                      {student.name}
+                    </TableCell>
+                    <TableCell>{student.phone}</TableCell>
+                    <TableCell>
+                      {student.gender === "BOY" ? "Boy" : "Girl"}
+                    </TableCell>
+                    <TableCell>
+                      <Badge variant="outline">
+                        {student.currentGroup ?? "Unassigned"}
+                      </Badge>
+                    </TableCell>
+                    <TableCell>
+                      <Badge
+                        variant={student.visited ? "secondary" : "outline"}
+                      >
+                        {student.visited ? "Visited" : "Not visited"}
+                      </Badge>
+                    </TableCell>
+                    <TableCell>
+                      {student.isException ? (
+                        <Badge variant="secondary">Exception</Badge>
+                      ) : (
+                        "Verified"
+                      )}
+                    </TableCell>
+                    <TableCell className="text-right">
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => onCollect(student)}
+                      >
+                        Open collection
+                      </Button>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </CardContent>
+        </Card>
       )}
     </div>
   )
