@@ -28,6 +28,7 @@ import {
 } from "@/components/ui/card"
 import {
   Command,
+  CommandDialog,
   CommandEmpty,
   CommandGroup,
   CommandInput,
@@ -58,11 +59,6 @@ import {
   FieldSet,
 } from "@/components/ui/field"
 import { Input } from "@/components/ui/input"
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from "@/components/ui/popover"
 import { Progress } from "@/components/ui/progress"
 import { Skeleton } from "@/components/ui/skeleton"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
@@ -560,7 +556,7 @@ function CollectionForm({
                                 ? "Partner selected"
                                 : "Select desktop partner"
                             }
-                            onSelect={field.handleChange}
+                            onSelect={(id) => field.handleChange(id)}
                           />
                           <Alert>
                             <MonitorIcon />
@@ -933,6 +929,8 @@ function ReconciliationView() {
 }
 function MatchForm({ data }: { data: Recon }) {
   const client = useQueryClient()
+  const [selectedNameId, setSelectedNameId] = useState("")
+  const [selectedPhoneId, setSelectedPhoneId] = useState("")
   const mutation = useMutation({
     mutationFn: (body: unknown) =>
       api("/api/reconciliation/matches", {
@@ -958,12 +956,8 @@ function MatchForm({ data }: { data: Recon }) {
         confirmed: true,
       }),
   })
-  const name = data.unmatchedNames.find(
-      (n) => n._id === form.state.values.candidateNameDocumentId
-    ),
-    phone = data.unmatchedPhones.find(
-      (p) => p._id === form.state.values.phoneNumberDocumentId
-    )
+  const name = data.unmatchedNames.find((n) => n._id === selectedNameId),
+    phone = data.unmatchedPhones.find((p) => p._id === selectedPhoneId)
   return (
     <form
       onSubmit={(e) => {
@@ -982,7 +976,10 @@ function MatchForm({ data }: { data: Recon }) {
                   id: n._id,
                   label: n.name,
                 }))}
-                onSelect={field.handleChange}
+                onSelect={(id) => {
+                  field.handleChange(id)
+                  setSelectedNameId(id)
+                }}
               />
             </Field>
           )}
@@ -997,7 +994,10 @@ function MatchForm({ data }: { data: Recon }) {
                   id: p._id,
                   label: p.phoneNumber,
                 }))}
-                onSelect={field.handleChange}
+                onSelect={(id) => {
+                  field.handleChange(id)
+                  setSelectedPhoneId(id)
+                }}
               />
             </Field>
           )}
@@ -1047,43 +1047,62 @@ function RawPicker({
   onSelect: (id: string) => void
 }) {
   const [open, setOpen] = useState(false)
+  const [search, setSearch] = useState("")
+  const filteredItems = items.filter((item) =>
+    `${item.label} ${item.id}`.toLowerCase().includes(search.toLowerCase())
+  )
   return (
-    <Popover open={open} onOpenChange={setOpen}>
-      <PopoverTrigger
-        render={
-          <Button
-            type="button"
-            variant="outline"
-            className="min-h-11 w-full justify-start"
-          >
-            <SearchIcon data-icon="inline-start" />
-            {label}
-          </Button>
-        }
-      />
-      <PopoverContent className="w-(--anchor-width) p-0">
-        <Command>
-          <CommandInput placeholder="Search raw list…" />
-          <CommandList>
-            <CommandEmpty>No unmatched record found.</CommandEmpty>
-            <CommandGroup>
-              {items.map((item) => (
-                <CommandItem
+    <>
+      <Button
+        type="button"
+        variant="outline"
+        className="min-h-11 w-full justify-start"
+        onClick={() => setOpen(true)}
+      >
+        <SearchIcon data-icon="inline-start" />
+        {label}
+      </Button>
+      <CommandDialog
+        open={open}
+        onOpenChange={setOpen}
+        title="Select raw record"
+        description="Search and select one unmatched source record."
+        showCloseButton
+      >
+        <div className="flex flex-col gap-2 p-2">
+          <Input
+            autoFocus
+            aria-label="Search raw list"
+            placeholder="Search raw list…"
+            value={search}
+            onChange={(event) => setSearch(event.target.value)}
+          />
+          <div className="flex max-h-72 flex-col gap-1 overflow-y-auto">
+            {filteredItems.length ? (
+              filteredItems.map((item) => (
+                <Button
                   key={item.id}
-                  value={`${item.label} ${item.id}`}
-                  onSelect={() => {
+                  type="button"
+                  variant="ghost"
+                  className="min-h-11 justify-start"
+                  onClick={() => {
                     onSelect(item.id)
+                    setSearch("")
                     setOpen(false)
                   }}
                 >
                   {item.label}
-                </CommandItem>
-              ))}
-            </CommandGroup>
-          </CommandList>
-        </Command>
-      </PopoverContent>
-    </Popover>
+                </Button>
+              ))
+            ) : (
+              <p className="py-6 text-center text-sm text-muted-foreground">
+                No unmatched record found.
+              </p>
+            )}
+          </div>
+        </div>
+      </CommandDialog>
+    </>
   )
 }
 
@@ -1097,54 +1116,75 @@ function StudentPartnerPicker({
   onSelect: (id: string) => void
 }) {
   const [open, setOpen] = useState(false)
+  const [search, setSearch] = useState("")
   const students = useQuery({
     queryKey: ["students", "partner-picker"],
     queryFn: () => api<Student[]>("/api/students"),
   })
+  const filteredStudents = students.data?.filter(
+    (student) =>
+      student._id !== excludeId &&
+      `${student.name} ${student.phone}`
+        .toLowerCase()
+        .includes(search.toLowerCase())
+  )
   return (
-    <Popover open={open} onOpenChange={setOpen}>
-      <PopoverTrigger
-        render={
-          <Button
-            type="button"
-            variant="outline"
-            className="min-h-11 w-full justify-start"
-          >
-            <SearchIcon data-icon="inline-start" />
-            {label}
-          </Button>
-        }
-      />
-      <PopoverContent className="w-(--anchor-width) p-0">
-        <Command>
-          <CommandInput placeholder="Search verified students…" />
-          <CommandList>
-            <CommandEmpty>No verified student found.</CommandEmpty>
-            <CommandGroup>
-              {students.data
-                ?.filter((student) => student._id !== excludeId)
-                .map((student) => (
-                  <CommandItem
-                    key={student._id}
-                    value={`${student.name} ${student.phone}`}
-                    onSelect={() => {
-                      onSelect(student._id)
-                      setOpen(false)
-                    }}
-                  >
-                    <span className="flex min-w-0 flex-col">
-                      <span className="truncate">{student.name}</span>
-                      <span className="text-xs text-muted-foreground">
-                        {student.phone}
-                      </span>
+    <>
+      <Button
+        type="button"
+        variant="outline"
+        className="min-h-11 w-full justify-start"
+        onClick={() => setOpen(true)}
+      >
+        <SearchIcon data-icon="inline-start" />
+        {label}
+      </Button>
+      <CommandDialog
+        open={open}
+        onOpenChange={setOpen}
+        title="Select verified student"
+        description="Search and select an existing verified student."
+        showCloseButton
+      >
+        <div className="flex flex-col gap-2 p-2">
+          <Input
+            autoFocus
+            aria-label="Search verified students"
+            placeholder="Search verified students…"
+            value={search}
+            onChange={(event) => setSearch(event.target.value)}
+          />
+          <div className="flex max-h-72 flex-col gap-1 overflow-y-auto">
+            {filteredStudents?.length ? (
+              filteredStudents.map((student) => (
+                <Button
+                  key={student._id}
+                  type="button"
+                  variant="ghost"
+                  className="min-h-11 justify-start"
+                  onClick={() => {
+                    onSelect(student._id)
+                    setSearch("")
+                    setOpen(false)
+                  }}
+                >
+                  <span className="flex min-w-0 flex-col">
+                    <span className="truncate">{student.name}</span>
+                    <span className="text-xs text-muted-foreground">
+                      {student.phone}
                     </span>
-                  </CommandItem>
-                ))}
-            </CommandGroup>
-          </CommandList>
-        </Command>
-      </PopoverContent>
-    </Popover>
+                  </span>
+                </Button>
+              ))
+            ) : (
+              <p className="py-6 text-center text-sm text-muted-foreground">
+                No verified student found.
+              </p>
+            )}
+          </div>
+        </div>
+      </CommandDialog>
+    </>
   )
 }
 function LoadingCards() {
