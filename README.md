@@ -1,21 +1,13 @@
-# Next.js template
+# PG Group Tracker
 
-This is a Next.js template with shadcn/ui.
+Production-focused Next.js application for verified student reconciliation, mobile field collection, relationship tracking, and live D1–D6 occupancy.
 
-## Adding components
+## Setup
 
-To add components to your app, run the following command:
+1. Copy `.env.example` to `.env.local` and set the server-only `MONGODB_URI`.
+2. Run `bun install` and `bun run dev`.
+3. Open **Reconcile** to explicitly connect one raw name, one raw phone, and a verified gender. Raw `test.cdac` records are never edited by the app.
 
-```bash
-npx shadcn@latest add button
-```
+Useful checks: `bun test`, `bun run typecheck`, `bun run lint`, and `bun run build`.
 
-This will place the ui components in the `components` directory.
-
-## Using components
-
-To use the components in your app, import them as follows:
-
-```tsx
-import { Button } from "@/components/ui/button";
-```
+`bun run db:compare-cdac` is a read-only comparison of local JSON fixtures with MongoDB. The import command refuses to run when raw source records already exist.
