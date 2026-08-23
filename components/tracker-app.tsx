@@ -119,7 +119,6 @@ type Student = {
   currentGroup: CurrentGroup
   projectGroup: string | null
   desktopRequired: boolean | null
-  desktopPartner: string | null
   notes: string
   isException: boolean
   updatedAt: string
@@ -575,7 +574,6 @@ function CollectionForm({
       groupAnswer: student.currentGroup ? "YES" : "NO",
       projectPartnerIds: [] as string[],
       desktopRequired: student.desktopRequired,
-      desktopPartnerId: student.desktopPartner,
       notes: student.notes,
     },
     onSubmit: async ({ value }) =>
@@ -720,8 +718,6 @@ function CollectionForm({
                       if (required) {
                         form.setFieldValue("groupAnswer", "YES")
                         form.setFieldValue("currentGroup", "D6")
-                      } else {
-                        form.setFieldValue("desktopPartnerId", null)
                       }
                     }}
                     variant="outline"
@@ -734,37 +730,6 @@ function CollectionForm({
                   </ToggleGroup>
                 )}
               </form.Field>
-              <form.Subscribe
-                selector={(state) => state.values.desktopRequired}
-              >
-                {(required) =>
-                  required && (
-                    <form.Field name="desktopPartnerId">
-                      {(field) => (
-                        <Field>
-                          <FieldLabel>Desktop partner</FieldLabel>
-                          <StudentPartnerPicker
-                            excludeId={student._id}
-                            placeholder="Select desktop partner"
-                            selectedIds={
-                              field.state.value ? [field.state.value] : []
-                            }
-                            onSelect={(id) => field.handleChange(id)}
-                          />
-                          <Alert>
-                            <MonitorIcon />
-                            <AlertTitle>Desktop users → D6</AlertTitle>
-                            <AlertDescription>
-                              This student has been assigned to D6. Select the
-                              desktop partner they will share with.
-                            </AlertDescription>
-                          </Alert>
-                        </Field>
-                      )}
-                    </form.Field>
-                  )
-                }
-              </form.Subscribe>
             </FieldSet>
             <Field>
               <FieldLabel htmlFor="notes">Notes</FieldLabel>

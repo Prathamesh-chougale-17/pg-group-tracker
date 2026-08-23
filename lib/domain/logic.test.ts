@@ -103,7 +103,6 @@ describe("student rules", () => {
     const base = {
       projectPartnerIds: [],
       desktopRequired: null,
-      desktopPartnerId: null,
       notes: "",
     }
     expect(
@@ -128,17 +127,15 @@ describe("student rules", () => {
         currentGroup: "D1",
         gender: "GIRL",
         desktopRequired: false,
-        desktopPartnerId: null,
         sameGenderCount: 8,
       })
     ).toContain("female capacity of 8"))
-  it("requires desktop users to be paired in D6", () => {
+  it("requires desktop users to be in D6 without requiring a partner", () => {
     expect(
       placementRuleError({
         currentGroup: "D1",
         gender: "BOY",
         desktopRequired: true,
-        desktopPartnerId: null,
         sameGenderCount: 0,
       })
     ).toContain("assigned to D6")
@@ -147,29 +144,16 @@ describe("student rules", () => {
         currentGroup: "D6",
         gender: "BOY",
         desktopRequired: true,
-        desktopPartnerId: null,
         sameGenderCount: 0,
       })
-    ).toContain("select a desktop partner")
+    ).toBeNull()
   })
-  it("requires the desktop partner to also be in D6", () =>
-    expect(
-      placementRuleError({
-        currentGroup: "D6",
-        gender: "BOY",
-        desktopRequired: true,
-        desktopPartnerId: "partner",
-        desktopPartnerGroup: "D5",
-        sameGenderCount: 0,
-      })
-    ).toContain("partner must also be assigned to D6"))
   it("rejects conflicting project partner group assignments", () =>
     expect(
       placementRuleError({
         currentGroup: "D2",
         gender: "BOY",
         desktopRequired: false,
-        desktopPartnerId: null,
         sameGenderCount: 0,
         conflictingProjectPartnerName: "A Partner",
       })

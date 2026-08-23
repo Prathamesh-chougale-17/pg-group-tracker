@@ -13,7 +13,6 @@ export interface Student {
   currentGroup: CurrentGroup
   projectGroup: string | null
   desktopRequired: boolean | null
-  desktopPartner: string | null
   notes: string
   isException: boolean
   source?: {

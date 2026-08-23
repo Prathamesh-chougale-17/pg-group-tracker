@@ -25,6 +25,7 @@ const publicStudent = (student: Record<string, unknown>) => {
   delete safe.source
   delete safe.normalizedName
   delete safe.normalizedPhone
+  delete safe.desktopPartner
   return safe
 }
 export async function studentsDb() {
@@ -38,7 +39,6 @@ async function assertPlacementRules(
     currentGroup: Student["currentGroup"]
     gender: Student["gender"]
     desktopRequired: boolean | null
-    desktopPartnerId: string | null
     projectPartnerIds?: string[]
   },
   session: ClientSession
@@ -58,12 +58,6 @@ async function assertPlacementRules(
           { session }
         )
       : 0
-  const desktopPartner = input.desktopPartnerId
-    ? await db
-        .collection<Student>("students")
-        .findOne({ _id: input.desktopPartnerId }, { session })
-    : null
-
   let projectPartnerIds = input.projectPartnerIds
   if (projectPartnerIds === undefined && student.projectGroup) {
     const projectGroup = await db
@@ -89,8 +83,6 @@ async function assertPlacementRules(
     currentGroup: input.currentGroup,
     gender: input.gender,
     desktopRequired: input.desktopRequired,
-    desktopPartnerId: input.desktopPartnerId,
-    desktopPartnerGroup: desktopPartner?.currentGroup,
     sameGenderCount,
     conflictingProjectPartnerName: conflictingProjectPartner?.name,
   })
@@ -155,7 +147,6 @@ export async function createException(
       currentGroup: null,
       projectGroup: null,
       desktopRequired: null,
-      desktopPartner: null,
       notes: input.notes,
       isException: true,
       createdAt: now,
@@ -177,14 +168,8 @@ export async function updateStudent(
   await ensureIndexes(db)
   const student = await db.collection<Student>("students").findOne({ _id: id })
   if (!student) throw new Error("NOT_FOUND")
-  if (input.desktopPartnerId === id || input.projectPartnerIds.includes(id))
+  if (input.projectPartnerIds.includes(id))
     throw new Error("CONFLICT:A student cannot be their own partner")
-  if (input.desktopRequired && input.desktopPartnerId) {
-    const partner = await db
-      .collection<Student>("students")
-      .findOne({ _id: input.desktopPartnerId })
-    if (!partner) throw new Error("CONFLICT:Desktop partner was not found")
-  }
   const now = new Date()
   const filter: Record<string, unknown> = { _id: id }
   if (input.expectedUpdatedAt)
@@ -200,7 +185,6 @@ export async function updateStudent(
           currentGroup: input.currentGroup,
           gender: student.gender,
           desktopRequired: input.desktopRequired,
-          desktopPartnerId: input.desktopPartnerId,
           projectPartnerIds: input.projectPartnerIds,
         },
         session
@@ -214,22 +198,6 @@ export async function updateStudent(
           .updateMany(
             { projectGroup: student.projectGroup },
             { $set: { projectGroup: null, updatedAt: now } },
-            { session }
-          )
-      }
-      if (
-        student.desktopPartner &&
-        student.desktopPartner !== input.desktopPartnerId
-      ) {
-        const oldPair = [id, student.desktopPartner].sort().join(":")
-        await db
-          .collection("desktopPairs")
-          .deleteOne({ pairKey: oldPair }, { session })
-        await db
-          .collection<Student>("students")
-          .updateOne(
-            { _id: student.desktopPartner },
-            { $set: { desktopPartner: null, updatedAt: now } },
             { session }
           )
       }
@@ -276,51 +244,16 @@ export async function updateStudent(
             { session }
           )
       }
-      if (input.desktopRequired && input.desktopPartnerId) {
-        const pair = [id, input.desktopPartnerId].sort()
-        await db
-          .collection<{
-            _id: string
-            student1: string
-            student2: string
-            pairKey: string
-            status: string
-            createdAt: Date
-            updatedAt: Date
-          }>("desktopPairs")
-          .updateOne(
-            { pairKey: pair.join(":") },
-            {
-              $setOnInsert: {
-                _id: new ObjectId().toHexString(),
-                student1: pair[0],
-                student2: pair[1],
-                pairKey: pair.join(":"),
-                status: "PENDING",
-                createdAt: now,
-              },
-              $set: { updatedAt: now },
-            },
-            { upsert: true, session }
-          )
-        await db
-          .collection<Student>("students")
-          .updateOne(
-            { _id: input.desktopPartnerId },
-            { $set: { desktopPartner: id, updatedAt: now } },
-            { session }
-          )
-      }
       updated = await db.collection<Student>("students").findOneAndUpdate(
         filter,
         {
           $set: {
             currentGroup: input.currentGroup,
             desktopRequired: input.desktopRequired,
-            desktopPartner: input.desktopPartnerId,
             notes: input.notes,
             updatedAt: now,
           },
+          $unset: { desktopPartner: "" },
         },
         { returnDocument: "after", session }
       )
@@ -381,22 +314,9 @@ export async function adminUpdateStudent(
           currentGroup: input.currentGroup,
           gender: input.gender,
           desktopRequired: input.desktopRequired,
-          desktopPartnerId:
-            input.desktopRequired === true ? student.desktopPartner : null,
         },
         session
       )
-      if (input.desktopRequired !== true && student.desktopPartner) {
-        const pairKey = [id, student.desktopPartner].sort().join(":")
-        await db.collection("desktopPairs").deleteOne({ pairKey }, { session })
-        await db
-          .collection<Student>("students")
-          .updateOne(
-            { _id: student.desktopPartner },
-            { $set: { desktopPartner: null, updatedAt: now } },
-            { session }
-          )
-      }
 
       updated = await db.collection<Student>("students").findOneAndUpdate(
         filter,
@@ -409,11 +329,10 @@ export async function adminUpdateStudent(
             gender: input.gender,
             currentGroup: input.currentGroup,
             desktopRequired: input.desktopRequired,
-            desktopPartner:
-              input.desktopRequired === true ? student.desktopPartner : null,
             notes: input.notes,
             updatedAt: now,
           },
+          $unset: { desktopPartner: "" },
         },
         { returnDocument: "after", session }
       )
@@ -491,16 +410,6 @@ export async function deleteStudent(id: string) {
         }
       }
 
-      await db
-        .collection("desktopPairs")
-        .deleteMany({ $or: [{ student1: id }, { student2: id }] }, { session })
-      await db
-        .collection<Student>("students")
-        .updateMany(
-          { desktopPartner: id },
-          { $set: { desktopPartner: null, updatedAt: now } },
-          { session }
-        )
       await db
         .collection("reconciliationMatches")
         .deleteMany({ studentId: id }, { session })
@@ -610,7 +519,6 @@ export async function confirmMatch(
     currentGroup: null,
     projectGroup: null,
     desktopRequired: null,
-    desktopPartner: null,
     notes: "",
     isException: false,
     source: {

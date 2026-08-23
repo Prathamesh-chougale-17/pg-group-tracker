@@ -82,18 +82,12 @@ export function placementRuleError(input: {
   currentGroup: CurrentGroup
   gender: Gender
   desktopRequired: boolean | null
-  desktopPartnerId: string | null
-  desktopPartnerGroup?: CurrentGroup
   sameGenderCount: number
   conflictingProjectPartnerName?: string
 }) {
   if (input.desktopRequired) {
     if (input.currentGroup !== "D6")
       return "Students using desktops must be assigned to D6"
-    if (!input.desktopPartnerId)
-      return "Students using desktops must select a desktop partner"
-    if (input.desktopPartnerGroup !== "D6")
-      return "The selected desktop partner must also be assigned to D6"
   }
 
   const groupId = GROUP_IDS.find((id) => id === input.currentGroup)

@@ -29,7 +29,6 @@ export const studentUpdateSchema = z.object({
   currentGroup: currentGroupSchema,
   projectPartnerIds: z.array(z.string()).max(8).default([]),
   desktopRequired: z.boolean().nullable(),
-  desktopPartnerId: z.string().nullable(),
   notes: z.string().trim().max(1000),
   expectedUpdatedAt: z.string().datetime().optional(),
 })

@@ -67,6 +67,5 @@ export async function ensureIndexes(db: Db) {
       { key: { phoneNumberDocumentId: 1 }, unique: true },
     ]),
     db.collection("importSessions").createIndex({ status: 1, updatedAt: -1 }),
-    db.collection("desktopPairs").createIndex({ pairKey: 1 }, { unique: true }),
   ])
 }
