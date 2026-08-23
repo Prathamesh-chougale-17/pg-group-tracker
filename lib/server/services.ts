@@ -310,10 +310,17 @@ export async function dashboard() {
 export async function reconciliationData() {
   const db = await studentsDb()
   const rawDb = await getRawDb()
-  const [raw, matches, session] = await Promise.all([
+  const [names, phones, matches, session] = await Promise.all([
     rawDb
-      .collection("cdac")
-      .find({ type: { $in: ["candidate_name", "phone_number"] } })
+      .collection<{ _id: string; name: string; sourceIndex: number }>("student")
+      .find({})
+      .sort({ sourceIndex: 1 })
+      .toArray(),
+    rawDb
+      .collection<{ _id: string; phoneNumber: string; sourceIndex: number }>(
+        "phone-number"
+      )
+      .find({})
       .sort({ sourceIndex: 1 })
       .toArray(),
     db.collection("reconciliationMatches").find({}).toArray(),
@@ -321,6 +328,16 @@ export async function reconciliationData() {
       .collection("importSessions")
       .findOne({ status: "IN_PROGRESS" }, { sort: { updatedAt: -1 } }),
   ])
+  const raw = [
+    ...names.map((document) => ({
+      ...document,
+      type: "candidate_name" as const,
+    })),
+    ...phones.map((document) => ({
+      ...document,
+      type: "phone_number" as const,
+    })),
+  ]
   const report = rawReport(
     raw,
     new Set(matches.map((m) => String(m.candidateNameDocumentId))),
@@ -333,15 +350,16 @@ export async function confirmMatch(
 ) {
   const db = await studentsDb()
   await ensureIndexes(db)
-  const raw = (await getRawDb()).collection<{
-    _id: string
-    type: string
-    name?: string
-    phoneNumber?: string
-  }>("cdac")
+  const rawDb = await getRawDb()
   const [nameDoc, phoneDoc] = await Promise.all([
-    raw.findOne({ _id: input.candidateNameDocumentId, type: "candidate_name" }),
-    raw.findOne({ _id: input.phoneNumberDocumentId, type: "phone_number" }),
+    rawDb
+      .collection<{ _id: string; name: string; sourceIndex: number }>("student")
+      .findOne({ _id: input.candidateNameDocumentId }),
+    rawDb
+      .collection<{ _id: string; phoneNumber: string; sourceIndex: number }>(
+        "phone-number"
+      )
+      .findOne({ _id: input.phoneNumberDocumentId }),
   ])
   if (!nameDoc || !phoneDoc)
     throw new Error("CONFLICT:The selected raw records no longer exist")

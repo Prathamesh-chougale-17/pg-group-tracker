@@ -35,7 +35,7 @@ export async function getDb(): Promise<Db> {
   return (await client()).db(process.env.MONGODB_APP_DB || "pgGroupTracker")
 }
 export async function getRawDb(): Promise<Db> {
-  return (await client()).db(process.env.MONGODB_SOURCE_DB || "test")
+  return (await client()).db(process.env.MONGODB_SOURCE_DB || "cdac")
 }
 export async function ensureIndexes(db: Db) {
   await Promise.all([
