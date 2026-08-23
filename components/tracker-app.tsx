@@ -256,7 +256,7 @@ export function TrackerApp({
               router.push(
                 student
                   ? `/collect/${encodeURIComponent(student._id)}`
-                  : "/collect"
+                  : "/students"
               )
             }}
           />
